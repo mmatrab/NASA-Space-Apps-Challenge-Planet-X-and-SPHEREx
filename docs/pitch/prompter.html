@@ -1,0 +1,213 @@
+<title>AstroSeekers Prompter</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one full-screen cue card; status bar on top, controls at the bottom, tap halves to move. */
+:root {
+  --stage: #0d0f12;
+  --ink: #f3f1ea;
+  --dim: #8d939c;
+  --cue: #ff6a4d;
+  --rule: #262a31;
+  --late: #ffb648;
+  --ok: #7fd49a;
+  --font-read: "Atkinson Hyperlegible", "Helvetica Neue", Arial, sans-serif;
+  --font-ui: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--stage); color: var(--ink); font-family: var(--font-read);
+  display: flex; flex-direction: column; overflow: hidden;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none;
+}
+header, footer { flex: none; display: flex; align-items: center; gap: 10px; font-family: var(--font-ui); font-size: 13px; color: var(--dim); }
+header { padding-block: 10px 8px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+footer { padding-block: 8px 12px; border-top: 1px solid var(--rule); }
+.part { color: var(--ink); letter-spacing: .06em; text-transform: uppercase; }
+.clock { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink); font-size: 18px; }
+.delta { font-variant-numeric: tabular-nums; min-width: 7ch; text-align: right; }
+.delta.late { color: var(--late); } .delta.ok { color: var(--ok); }
+main { flex: 1; min-height: 0; overflow-y: auto; padding-block: 18px; display: flex; flex-direction: column; gap: 14px; }
+.meta { display: flex; gap: 10px; align-items: baseline; font-family: var(--font-ui); font-size: 13px; color: var(--dim); }
+.section { color: var(--cue); letter-spacing: .08em; text-transform: uppercase; }
+.cue { align-self: flex-start; font-family: var(--font-ui); font-size: 15px; color: var(--stage); background: var(--cue); padding: 6px 10px; border-radius: 4px; }
+.read { font-size: var(--size, 30px); line-height: 1.38; margin: 0; max-width: 34ch; text-wrap: pretty; }
+.read p { margin: 0 0 .55em; }
+.read strong { color: #ffd9a8; font-weight: 700; }
+.next { margin-top: auto; font-size: 15px; color: var(--dim); border-top: 1px dashed var(--rule); padding-top: 10px; }
+.next b { font-family: var(--font-ui); font-weight: 400; color: var(--cue); }
+button { font: inherit; color: var(--ink); background: #1b1f25; border: 1px solid var(--rule); border-radius: 6px; padding: 10px 14px; min-height: 44px; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--cue); outline-offset: 2px; }
+button.go { background: var(--cue); color: #120806; border-color: var(--cue); font-weight: 700; }
+.grow { flex: 1; }
+.count { font-variant-numeric: tabular-nums; }
+.tap { position: fixed; top: 64px; bottom: 74px; width: 38%; z-index: 1; background: transparent; border: 0; padding: 0; border-radius: 0; min-height: 0; }
+.tap.left { left: 0; } .tap.right { right: 0; }
+.tap:focus-visible { outline: none; }
+#list { position: fixed; inset: 0; z-index: 5; background: var(--stage); overflow-y: auto;
+  padding: calc(12px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+#list ol { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
+#list li button { width: 100%; text-align: left; display: grid; grid-template-columns: 4.5ch 1fr; gap: 10px; font-size: 15px; }
+#list li button span:first-child { font-family: var(--font-ui); color: var(--dim); }
+#list li button[aria-current="true"] { border-color: var(--cue); }
+@media (prefers-reduced-motion: no-preference) { main { transition: opacity .12s; } }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono&display=swap">
+
+<header>
+  <span class="part" id="part">SPHEREx</span>
+  <span class="count" id="count">1 / 30</span>
+  <span class="clock" id="clock">0:00</span>
+  <span class="delta" id="delta">planned 0:00</span>
+</header>
+
+<main id="card" aria-live="polite">
+  <div class="meta"><span class="section" id="section"></span><span id="planned"></span></div>
+  <div class="cue" id="cue" hidden></div>
+  <div class="read" id="read"></div>
+  <div class="next" id="next"></div>
+</main>
+
+<button class="tap left" id="tapPrev" aria-label="Previous card"></button>
+<button class="tap right" id="tapNext" aria-label="Next card"></button>
+
+<footer>
+  <button class="go" id="start">Start</button>
+  <button id="prev" aria-label="Previous card">‹</button>
+  <button id="next2" aria-label="Next card">›</button>
+  <span class="grow"></span>
+  <button id="smaller" aria-label="Smaller text">A−</button>
+  <button id="bigger" aria-label="Bigger text">A+</button>
+  <button id="all">Cards</button>
+</footer>
+
+<div id="list" hidden>
+  <div style="display:flex;align-items:center;gap:10px">
+    <strong style="font-size:18px">All cards</strong><span class="grow"></span>
+    <button id="reset">Reset timer</button><button id="close">Close</button>
+  </div>
+  <ol id="items"></ol>
+</div>
+
+<script>
+// t = planned start in seconds from the beginning of the whole talk (SPHEREx 5:00, then Space Explorer 2:00).
+const CARDS = [
+  { part: 'SPHEREx', t: 0, section: 'The problem', text: "Hi, I'm Mohamed Matrab, from team AstroSeekers. We chose the **“Planet X and SPHEREx”** challenge." },
+  { part: 'SPHEREx', t: 8, section: 'The problem', text: 'Almost a hundred years ago, Pluto was found by comparing two photos of the sky taken at different times, and noticing one dot that had moved.' },
+  { part: 'SPHEREx', t: 18, section: 'The problem', text: "Today, NASA's **SPHEREx** telescope does this at a much bigger scale. Since 2025, it has photographed the whole sky every six months, in 102 colours of infrared light, more than a billion objects." },
+  { part: 'SPHEREx', t: 30, section: 'The problem', text: 'Nearby stars, brown dwarfs, asteroids and comets all move between those photos. Volunteers have already found many brown dwarfs this way. But SPHEREx data comes as huge technical files, and **no one can look through it alone.**' },
+  { part: 'SPHEREx', t: 42, section: 'Our solution', text: 'So we built **SPHEREx Sky Motion**: a website where anyone can watch the infrared sky change.|You choose a spot in the sky. The site finds every SPHEREx image of that spot, lines them up, and plays them like a short video.' },
+  { part: 'SPHEREx', t: 58, section: 'Our solution', text: "And just like our other projects: **we never invent data. Every pixel comes from NASA's archive, with its source.**" },
+  { part: 'SPHEREx', t: 70, section: 'Live demo', cue: 'Home page', text: "Let me show you.|The page follows three steps: choose a target, play the visits, inspect a pixel. If you don't know where to look, we suggest five targets, the ones named in the challenge, with what to look for." },
+  { part: 'SPHEREx', t: 90, section: 'Live demo', cue: "Click Barnard's Star", text: "Let's take Barnard's Star, the star that crosses our sky the fastest.|The site has found 325 SPHEREx images of it. Here they are, one frame per visit, about six months apart, from August 2025 to August 2026. North is up, and every frame shows its date." },
+  { part: 'SPHEREx', t: 115, section: 'Live demo', cue: 'Compare tab → Side by side', text: 'In the Compare tab, we put August 2025 next to August 2026.' },
+  { part: 'SPHEREx', t: 122, section: 'Live demo', cue: 'Blink', text: 'If we blink between them, you can already see the star jump.' },
+  { part: 'SPHEREx', t: 130, section: 'Live demo', cue: 'Difference', text: 'And if we subtract them: **white means brighter now, black means fainter now.**|This white-and-black pair is the star moving north, about ten arc-seconds in one year. That matches the speed astronomers have measured for this star.' },
+  { part: 'SPHEREx', t: 150, section: 'Live demo', cue: 'Point to the circles', text: "These circles are stars from ESA's Gaia catalogue, drawn where Gaia predicts them on each date. The gold one is Barnard's Star, and it follows the moving star." },
+  { part: 'SPHEREx', t: 165, section: 'Live demo', cue: 'Explore → click next to the star → spectrum', text: 'SPHEREx has another trick: each image sees a spot at a different colour. So when you click a star, we collect all those measurements and build its **spectrum, on the fly.**|Each colour of dot is a different visit. If the visits disagree, the star has changed.' },
+  { part: 'SPHEREx', t: 190, section: 'Live demo', cue: 'Click R Draconis', text: 'R Draconis is a star that pulses. It sits near the pole of the sky, where SPHEREx looks almost every month, so here we get thirteen visits instead of three. You can follow it month by month.' },
+  { part: 'SPHEREx', t: 205, section: 'Live demo', cue: 'Save GIF → About the data', text: 'Finally, you can save an image or an animated GIF, and share a link that reopens the same view. And this page explains where every number comes from.' },
+  { part: 'SPHEREx', t: 220, section: 'How we made it reliable', text: "A short behind-the-scenes story. During the whole hackathon, **NASA's SPHEREx search service was down.** We could not ask which images contain a star." },
+  { part: 'SPHEREx', t: 238, section: 'How we made it reliable', text: "So we went to the source: NASA's public SPHEREx archive on Amazon's cloud. We read the headers of the files and checked, with each image's own coordinates, whether our five targets were inside. We found more than **3,300 real images.**" },
+  { part: 'SPHEREx', t: 252, section: 'How we made it reliable', text: 'When the search service is back, the site uses it automatically. When something is down, the page says so. **We never fill the gap with fake data.**' },
+  { part: 'SPHEREx', t: 260, section: 'Impact and conclusion', text: 'With SPHEREx Sky Motion, a student, a teacher or an amateur astronomer can open a link and watch a star move, in real NASA data, in a few seconds.' },
+  { part: 'SPHEREx', t: 272, section: 'Impact and conclusion', text: 'Every new SPHEREx release adds new frames. Next, we want to let volunteers flag moving objects, add WISE images for a longer timeline, and embed the viewer in other websites.' },
+  { part: 'SPHEREx', t: 285, section: 'Impact and conclusion', text: "Our goal is simple: **make SPHEREx's moving sky something everyone can see, understand, and trust.**|And SPHEREx is not the only thing we built…" },
+  { part: 'Space Explorer', t: 300, section: 'The problem', text: 'Now, let me introduce another module of our platform, ORBIT OS: **Space Explorer**.|NASA has discovered thousands of exoplanets — planets outside our Solar System.' },
+  { part: 'Space Explorer', t: 312, section: 'The problem', text: "But there's a problem: although NASA makes this data public, it's often difficult for ordinary people to understand.|You see scientific tables, complex numbers, and unfamiliar terminology.|**We wanted to make space exploration accessible to everyone.**" },
+  { part: 'Space Explorer', t: 325, section: 'Our solution', text: "So we built **Space Explorer**, an interactive application powered by real data from the NASA Exoplanet Archive.|Instead of just reading scientific numbers, users can discover planets, understand their characteristics, and explore their locations in the sky.|And importantly, **we don't invent scientific information. Every value comes from real research.**" },
+  { part: 'Space Explorer', t: 345, section: 'Live demo', cue: 'Click TRAPPIST-1 e', text: "Let me show you how it works.|First, users can search for a planet or simply browse NASA's catalogue. You don't need to know any planet names.|Let's explore **TRAPPIST-1 e**." },
+  { part: 'Space Explorer', t: 360, section: 'Live demo', cue: 'Show Find a World', text: 'Here, we answer three simple questions: How big is this planet? How far away is it? And how long is its year?' },
+  { part: 'Space Explorer', t: 372, section: 'Live demo', cue: 'Scroll to Sky Viewer', text: "Next, we can explore real telescope images around its host star. Our guided tour even explains the different types of images.|The circle identifies the star's position — not a photograph of the planet itself." },
+  { part: 'Space Explorer', t: 385, section: 'Live demo', cue: 'Point to scientific measurements', text: 'And here, we can see its radius, mass, orbital period, and the scientific sources behind those measurements.|Users can also explore a 3D visualization, save notes, and export scientific data.' },
+  { part: 'Space Explorer', t: 400, section: 'Conclusion', text: "Our goal isn't to discover planets with AI.|**Our goal is to make real space discoveries easier to explore, understand, and trust.**" },
+  { part: 'Space Explorer', t: 410, section: 'Conclusion', text: 'While our SPHEREx solution focuses on changes in the sky, Space Explorer focuses on worlds already discovered.|Together, they demonstrate our bigger vision for ORBIT OS: **making space science accessible to everyone.**|Thank you!' },
+];
+const END = 420;
+
+const $ = (id) => document.getElementById(id);
+const fmt = (s) => { const a = Math.abs(Math.round(s)); return `${Math.floor(a / 60)}:${String(a % 60).padStart(2, '0')}`; };
+const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const html = (text) => text.split('|').map((p) => `<p>${esc(p).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</p>`).join('');
+const plain = (text) => text.replace(/\*\*/g, '').split('|')[0];
+
+let i = 0;
+let startedAt = null;
+let pausedTotal = 0;
+let pausedAt = null;
+let size = 30;
+try { size = Number(localStorage.getItem('prompter-size')) || 30; i = Math.min(CARDS.length - 1, Number(localStorage.getItem('prompter-card')) || 0); } catch {}
+
+function elapsed() {
+  if (!startedAt) return 0;
+  const now = pausedAt ?? Date.now();
+  return (now - startedAt - pausedTotal) / 1000;
+}
+
+function render() {
+  const c = CARDS[i];
+  document.documentElement.style.setProperty('--size', size + 'px');
+  $('part').textContent = c.part;
+  $('count').textContent = `${i + 1} / ${CARDS.length}`;
+  $('section').textContent = c.section;
+  $('planned').textContent = `at ${fmt(c.t)}`;
+  $('cue').hidden = !c.cue;
+  $('cue').textContent = c.cue ? `▶ ${c.cue}` : '';
+  $('read').innerHTML = html(c.text);
+  const n = CARDS[i + 1];
+  $('next').innerHTML = n ? `<b>Next${n.cue ? ' · ' + esc(n.cue) : ''}</b> — ${esc(plain(n.text)).slice(0, 90)}…` : '<b>End</b> — Thank you!';
+  $('card').scrollTop = 0;
+  try { localStorage.setItem('prompter-card', String(i)); } catch {}
+  tick();
+}
+
+function tick() {
+  const e = elapsed();
+  $('clock').textContent = fmt(e);
+  if (!startedAt) { $('delta').textContent = `total ${fmt(END)}`; $('delta').className = 'delta'; return; }
+  const d = e - CARDS[i].t;
+  const late = d > 8;
+  $('delta').textContent = late ? `+${fmt(d)} late` : d < -8 ? `${fmt(-d)} early` : 'on time';
+  $('delta').className = 'delta ' + (late ? 'late' : 'ok');
+}
+
+function go(step) { i = Math.max(0, Math.min(CARDS.length - 1, i + step)); render(); }
+
+async function keepAwake() { try { await navigator.wakeLock?.request('screen'); } catch {} }
+
+$('start').addEventListener('click', () => {
+  if (!startedAt) { startedAt = Date.now(); keepAwake(); $('start').textContent = 'Pause'; }
+  else if (pausedAt) { pausedTotal += Date.now() - pausedAt; pausedAt = null; $('start').textContent = 'Pause'; keepAwake(); }
+  else { pausedAt = Date.now(); $('start').textContent = 'Resume'; }
+  tick();
+});
+$('prev').addEventListener('click', () => go(-1));
+$('next2').addEventListener('click', () => go(1));
+$('tapPrev').addEventListener('click', () => go(-1));
+$('tapNext').addEventListener('click', () => go(1));
+$('bigger').addEventListener('click', () => { size = Math.min(56, size + 2); try { localStorage.setItem('prompter-size', size); } catch {} render(); });
+$('smaller').addEventListener('click', () => { size = Math.max(18, size - 2); try { localStorage.setItem('prompter-size', size); } catch {} render(); });
+$('all').addEventListener('click', () => {
+  $('items').innerHTML = CARDS.map((c, k) => `<li><button data-k="${k}" aria-current="${k === i}"><span>${fmt(c.t)}</span><span>${c.part === 'Space Explorer' ? '◆ ' : ''}${esc(c.cue ? '▶ ' + c.cue : c.section)} — ${esc(plain(c.text)).slice(0, 60)}…</span></button></li>`).join('');
+  $('list').hidden = false;
+});
+$('items').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { i = Number(b.dataset.k); $('list').hidden = true; render(); } });
+$('close').addEventListener('click', () => { $('list').hidden = true; });
+$('reset').addEventListener('click', () => { startedAt = null; pausedAt = null; pausedTotal = 0; i = 0; $('start').textContent = 'Start'; $('list').hidden = true; render(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(1); }
+  if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(-1); }
+});
+let x0 = null;
+document.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+document.addEventListener('touchend', (e) => {
+  if (x0 === null) return;
+  const dx = e.changedTouches[0].clientX - x0;
+  if (Math.abs(dx) > 60) go(dx < 0 ? 1 : -1);
+  x0 = null;
+}, { passive: true });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && startedAt && !pausedAt) keepAwake(); });
+setInterval(tick, 500);
+render();
+</script>
