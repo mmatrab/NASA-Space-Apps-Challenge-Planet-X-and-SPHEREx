@@ -16,11 +16,8 @@ changing objects stand out.
 | --- | --- |
 | [`docs/challenge-brief.md`](docs/challenge-brief.md) | The challenge text, objectives, test targets and resources, as published |
 | [`docs/decisions.md`](docs/decisions.md) | Decisions and open questions, newest first |
-| [`FEATURES.md`](FEATURES.md) | Features we built so far, how they were verified, and where the code is (for the team, judges and AI agents) |
 
-## Ground rules (inherited from ORBIT OS)
-
-This entry follows the same rules as [ORBIT OS Space Explorer](https://github.com/mmatrab/orbit-os):
+## Ground rules
 
 - Show only real archive data. Never invent, fill in or simulate a pixel, a position or a number.
 - Every image says where it comes from: mission, data release, observation time, band.

@@ -6,9 +6,7 @@ Newest first. Each entry says what was decided, why, and what is still open.
 
 - Decided: this repository holds the challenge brief, decisions and code for our Planet X and SPHEREx
   entry.
-- Relationship with ORBIT OS: Space Explorer (https://github.com/mmatrab/orbit-os) already has a
-  working Aladin Lite sky viewer, survey fallbacks and provenance rules that this entry can reuse.
-  Whether this entry becomes an ORBIT OS module or stays standalone is open.
+- This is a standalone project, separate from any other repository.
 
 ### Open questions
 
