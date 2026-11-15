@@ -49,3 +49,38 @@ describe('archive response parsers', () => {
     expect(toMjd('')).toBeNull();
   });
 });
+
+import { fromIndex, parseVizierTsv } from '../server/api.ts';
+
+describe('fallbacks when archives are down', () => {
+  it('reads proper motions from the Sesame format served by the CfA mirror', () => {
+    const xml = `<Resolver name="Sc=Simbad"><jradeg>269.45207696</jradeg><jdedeg>4.69336497</jdedeg>
+      <pm><v>10393.349</v><pmRA>-801.551</pmRA><epmRA>0.032</epmRA><pmDE>10362.394</pmDE></pm><oname>* Barnard's Star</oname></Resolver>`;
+    const r = parseSesame(xml)!;
+    expect([r.ra, r.dec, r.pmra, r.pmdec]).toEqual([269.45207696, 4.69336497, -801.551, 10362.394]);
+  });
+  it('parses VizieR ASU tab-separated output (Gaia DR3 from the CfA mirror)', () => {
+    const tsv = `#\n# comment\nSource\tRA_ICRS\tDE_ICRS\tpmRA\tpmDE\tPlx\tGmag\n \tdeg\tdeg\tmas/yr\tmas/yr\tmas\tmag\n---\t---\t---\t---\t---\t---\t---\n4472832165289152896\t269.45652213591\t+04.70692299628\t   -4.595\t   -6.420\t   0.1569\t13.585307\n`;
+    const rows = parseVizierTsv(tsv);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].Source).toBe('4472832165289152896');
+    expect(Number(rows[0].DE_ICRS)).toBeCloseTo(4.70692299628, 9);
+  });
+  it('serves the offline index only for positions near an indexed target', () => {
+    const index = {
+      generatedAtUtc: '2026-11-15T13:00:00Z',
+      source: 'test',
+      targets: {
+        barnard: {
+          name: "Barnard's Star",
+          position: { ra: 269.45207696, dec: 4.69336497, epoch: 2000, pmra: -801.551, pmdec: 10362.394 },
+          images: [{ path: 'ibe/data/spherex/dr1/level2/W/l2b-v27-2026-196/1/level2_OBS1D1_spx_l2b-v27-2026-196.fits', detector: 1, obsId: 'OBS1', mjd: 60900, release: 'dr1', version: 27 }],
+        },
+      },
+    };
+    // Position moved to 2026.0 (~4.5' north of J2000): found.
+    expect(fromIndex(index, 269.4462, 4.7682)?.images).toHaveLength(1);
+    // Elsewhere: not found (the API then reports the outage).
+    expect(fromIndex(index, 133.8, -7.2)).toBeNull();
+  });
+});

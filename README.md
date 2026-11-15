@@ -57,8 +57,19 @@ The home page follows three steps: **1 Choose a target → 2 Play the visits →
 | SPHEREx images | IRSA cutout service on the Level 2 spectral images (DR1 and Quick Releases) |
 | Wavelength of each pixel | The image's own `WCS-WAVE` lookup table |
 | Pixel flags | SPHEREx Explanatory Supplement v2.1, Table 16 |
-| Star positions and motions | Gaia DR3 (ESA Gaia archive) |
-| Names to positions | CDS Sesame |
+| Star positions and motions | Gaia DR3 (ESA Gaia archive; CfA VizieR mirror as fallback) |
+| Names to positions | CDS Sesame (CfA mirror as fallback) |
+
+**When IRSA's search is down** (it answered 502 all day on 15 November 2026), the app falls back to
+our own index of the five test targets, `data/index/spherex-test-targets.json`. It is built by
+`scripts/build-target-index.ts` from NASA/IRSA's public SPHEREx bucket on AWS (`s3://nasa-irsa-spherex`).
+The script reads each candidate file's header and keeps an image only if the target, at that image's
+date, falls inside it. Every listed path is a real file. The page says when the index is being used.
+Name lookup and Gaia stars likewise fall back to the CfA (Harvard & Smithsonian) VizieR mirror when
+CDS or ESA do not answer.
+
+Target positions come from SIMBAD (epoch J2000.0) and are moved along their proper motion to 2026.0,
+the middle of the SPHEREx data. This matters: Barnard's Star has moved about 4.5′ since 2000.
 
 New SPHEREx releases appear automatically: the image list is queried live, and when the same exposure
 exists in several releases, the newest pipeline version is used.
@@ -84,6 +95,14 @@ FITS parsed in the browser (src/lib/fits.ts)
 
 The server exists because IRSA's cutout service sends no CORS header, so browsers cannot fetch it
 directly. It also drops each cutout's PSF table, about 4 MB, which the viewer does not use.
+
+## Rebuild the test-target index
+
+```bash
+node scripts/build-target-index.ts
+```
+
+This takes about an hour and reads a few hundred MB of file headers from the public bucket.
 
 ## Checks
 

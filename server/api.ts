@@ -10,13 +10,19 @@
  *   GET /api/gaia?ra=&dec=&radius=      Gaia DR3 stars with proper motions (ESA Gaia archive)
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { hduRanges } from '../src/lib/fits.ts';
+import { propagate } from '../src/lib/coords.ts';
 
 const IRSA = 'https://irsa.ipac.caltech.edu';
 const IRSA_TAP = `${IRSA}/TAP/sync`;
 const IRSA_SIA = `${IRSA}/SIA`;
 const SESAME = 'https://cdsweb.u-strasbg.fr/cgi-bin/nph-sesame/-oxp/SNV';
+/** Official VizieR mirror at the Center for Astrophysics (Harvard & Smithsonian), used when CDS is down. */
+const SESAME_CFA = 'https://vizier.cfa.harvard.edu/viz-bin/nph-sesame/-oxp/SNV';
 const GAIA_TAP = 'https://gea.esac.esa.int/tap-server/tap/sync';
+const VIZIER_CFA_ASU = 'https://vizier.cfa.harvard.edu/viz-bin/asu-tsv';
 const UA = 'SPHEREx-Sky-Motion/0.1 (NASA Space Apps 2026 entry)';
 
 export interface ImageRecord {
@@ -110,8 +116,8 @@ export function parseSesame(xml: string): { name: string; ra: number; dec: numbe
   const ra = Number(pick('jradeg'));
   const dec = Number(pick('jdedeg'));
   if (!Number.isFinite(ra) || !Number.isFinite(dec) || pick('jradeg') === null) return null;
-  const pmra = xml.match(/<pmRA>\s*<v>\s*([^<]+)<\/v>/)?.[1] ?? null;
-  const pmdec = xml.match(/<pmDE>\s*<v>\s*([^<]+)<\/v>/)?.[1] ?? null;
+  const pmra = xml.match(/<pmRA>\s*(?:<v>\s*)?([^<\s]+)/)?.[1] ?? null;
+  const pmdec = xml.match(/<pmDE>\s*(?:<v>\s*)?([^<\s]+)/)?.[1] ?? null;
   return {
     name: pick('oname') ?? '',
     ra,
@@ -119,6 +125,18 @@ export function parseSesame(xml: string): { name: string; ra: number; dec: numbe
     pmra: pmra !== null && Number.isFinite(Number(pmra)) ? Number(pmra) : null,
     pmdec: pmdec !== null && Number.isFinite(Number(pmdec)) ? Number(pmdec) : null,
   };
+}
+
+/** VizieR ASU tab-separated output: comment lines (#), a header, a units line and a dashes line. */
+export function parseVizierTsv(tsv: string): Record<string, string>[] {
+  const lines = tsv.split(/\r?\n/).filter((l) => l.trim() && !l.startsWith('#'));
+  if (lines.length < 3) return [];
+  const head = lines[0].split('\t').map((h) => h.trim());
+  return lines
+    .slice(1)
+    .filter((l) => !/^[-\t ]+$/.test(l) && !/^\s*(deg|mas|mag|"|\t)/.test(l.split('\t')[1] ?? '') )
+    .map((l) => Object.fromEntries(l.split('\t').map((v, i) => [head[i], v.trim()])))
+    .filter((r) => r[head[0]] !== '' && /^-?\d/.test(r[head[1]] ?? ''));
 }
 
 /** ISO date or MJD string -> MJD. */
@@ -216,6 +234,47 @@ async function cutout(path: string, ra: number, dec: number, size: number): Prom
 }
 
 // ---------------------------------------------------------------------------
+// Offline index (scripts/build-target-index.ts): used only when IRSA's search fails
+// ---------------------------------------------------------------------------
+
+interface IndexFile {
+  generatedAtUtc: string;
+  source: string;
+  targets: Record<string, {
+    name: string;
+    position: { ra: number; dec: number; epoch: number; pmra: number; pmdec: number };
+    images: { path: string; detector: number; obsId: string; mjd: number; release: string; version: number }[];
+  }>;
+}
+
+let indexCache: Promise<IndexFile | null> | null = null;
+function loadIndex(): Promise<IndexFile | null> {
+  indexCache ??= readFile(path.resolve(process.cwd(), 'data', 'index', 'spherex-test-targets.json'), 'utf8')
+    .then((t) => JSON.parse(t) as IndexFile)
+    .catch(() => null);
+  return indexCache;
+}
+
+const sepDeg = (ra1: number, d1: number, ra2: number, d2: number) => {
+  const r = Math.PI / 180;
+  const c = Math.sin(d1 * r) * Math.sin(d2 * r) + Math.cos(d1 * r) * Math.cos(d2 * r) * Math.cos((ra1 - ra2) * r);
+  return Math.acos(Math.min(1, Math.max(-1, c))) / r;
+};
+
+/** Images of an indexed target whose position (moved to 2026.0) is within 0.15° of the request. */
+export function fromIndex(index: IndexFile, ra: number, dec: number): { name: string; images: ImageRecord[] } | null {
+  for (const t of Object.values(index.targets)) {
+    const p = propagate(t.position.ra, t.position.dec, t.position.pmra, t.position.pmdec, t.position.epoch, 2026.0);
+    if (sepDeg(p.ra, p.dec, ra, dec) > 0.15) continue;
+    return {
+      name: t.name,
+      images: t.images.map((im) => ({ path: im.path, obsId: im.obsId, detector: im.detector, mjd: im.mjd, bandpass: null, release: im.release, version: im.version })),
+    };
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // HTTP handler (works as a Vite middleware and in server/index.ts)
 // ---------------------------------------------------------------------------
 
@@ -253,7 +312,13 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, next?
             errors.push(err instanceof Error ? err.message : String(err));
           }
         }
-        if (!records) return send(res, 503, { error: 'IRSA image search is unavailable right now.', details: errors });
+        if (!records) {
+          const index = await loadIndex();
+          const hit = index ? fromIndex(index, ra, dec) : null;
+          if (!hit) return send(res, 503, { error: 'IRSA image search is unavailable right now.', details: errors });
+          records = hit.images;
+          via = `our index of ${hit.name}, built ${index!.generatedAtUtc.slice(0, 10)} from NASA's SPHEREx bucket on AWS (IRSA search unavailable)`;
+        }
         const images = dedupeImages(records.filter((r) => isAllowedImagePath(r.path)));
         return send(res, 200, { via, count: images.length, images, retrievedAtUtc: new Date().toISOString() });
       }
@@ -270,10 +335,18 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, next?
       case '/api/resolve': {
         const name = (q.get('name') ?? '').trim();
         if (!name || name.length > 100) throw new BadRequest('name is required (up to 100 characters)');
-        const r = await get(`${SESAME}?${encodeURIComponent(name)}`, 'CDS Sesame', 30_000);
-        const found = parseSesame(await r.text());
+        let xml: string;
+        let source = 'CDS Sesame (SIMBAD/NED/VizieR)';
+        try {
+          xml = await (await get(`${SESAME}?${encodeURIComponent(name)}`, 'CDS Sesame', 20_000)).text();
+        } catch {
+          xml = await (await get(`${SESAME_CFA}?${encodeURIComponent(name)}`, 'CDS Sesame (CfA mirror)', 30_000)).text();
+          source = 'CDS Sesame, CfA mirror (SIMBAD/NED/VizieR)';
+        }
+        const found = parseSesame(xml);
         if (!found) return send(res, 404, { error: `No object named "${name}" was found by CDS Sesame.` });
-        return send(res, 200, { ...found, query: name, source: 'CDS Sesame (SIMBAD/NED/VizieR)' });
+        // Sesame positions are ICRS at epoch J2000.0; proper motions in mas/yr.
+        return send(res, 200, { ...found, epoch: 2000.0, query: name, source });
       }
 
       case '/api/gaia': {
@@ -287,8 +360,27 @@ FROM gaiadr3.gaia_source
 WHERE 1 = CONTAINS(POINT('ICRS', ra, dec), CIRCLE('ICRS', ${ra}, ${dec}, ${radius + 30 / 3600}))
 ORDER BY phot_g_mean_mag`;
         const body = new URLSearchParams({ REQUEST: 'doQuery', LANG: 'ADQL', FORMAT: 'csv', QUERY: query });
-        const r = await get(GAIA_TAP, 'ESA Gaia archive', 60_000, { method: 'POST', body });
-        const stars = parseCsv(await r.text()).map((s) => ({
+        let rows: Record<string, string>[];
+        let source = 'Gaia DR3 (gaiadr3.gaia_source), ESA Gaia archive';
+        try {
+          rows = parseCsv(await (await get(GAIA_TAP, 'ESA Gaia archive', 30_000, { method: 'POST', body })).text());
+        } catch {
+          // Same catalogue (VizieR I/355/gaiadr3) from the CfA VizieR mirror; positions at epoch J2016.0.
+          const q = new URLSearchParams({
+            '-source': 'I/355/gaiadr3',
+            '-c': `${ra} ${dec}`,
+            '-c.rs': String(Math.round((radius + 30 / 3600) * 3600)),
+            '-out': 'Source,RA_ICRS,DE_ICRS,pmRA,pmDE,Plx,Gmag',
+            '-out.max': '400',
+            '-sort': 'Gmag',
+          });
+          const tsv = await (await get(`${VIZIER_CFA_ASU}?${q}`, 'Gaia DR3 via CfA VizieR mirror', 60_000)).text();
+          rows = parseVizierTsv(tsv).map((r) => ({
+            source_id: r.Source, ra: r.RA_ICRS, dec: r.DE_ICRS, pmra: r.pmRA, pmdec: r.pmDE, parallax: r.Plx, phot_g_mean_mag: r.Gmag, ref_epoch: '2016.0',
+          }));
+          source = 'Gaia DR3 (VizieR I/355/gaiadr3), CfA VizieR mirror';
+        }
+        const stars = rows.map((s) => ({
           id: s.source_id,
           ra: Number(s.ra),
           dec: Number(s.dec),
@@ -298,7 +390,7 @@ ORDER BY phot_g_mean_mag`;
           g: s.phot_g_mean_mag === '' ? null : Number(s.phot_g_mean_mag),
           refEpoch: Number(s.ref_epoch),
         }));
-        return send(res, 200, { count: stars.length, stars, source: 'Gaia DR3 (gaiadr3.gaia_source), ESA' });
+        return send(res, 200, { count: stars.length, stars, source });
       }
 
       default:

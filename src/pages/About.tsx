@@ -9,13 +9,13 @@ export function About() {
       <table className="t mt-6">
         <thead><tr><th>What</th><th>Where it comes from</th></tr></thead>
         <tbody>
-          <tr><td>Which images cover a spot</td><td>NASA/IPAC Infrared Science Archive (IRSA): TAP, with SIA2 as fallback</td></tr>
+          <tr><td>Which images cover a spot</td><td>NASA/IPAC Infrared Science Archive (IRSA): TAP, with SIA2 as fallback. If both are down, our index of the five test targets, built from NASA's public SPHEREx bucket on AWS by reading each file's header</td></tr>
           <tr><td>The images</td><td>IRSA cutout service, SPHEREx Level 2 spectral images (DR1 and Quick Releases)</td></tr>
           <tr><td>Wavelength of each pixel</td><td>The image's own WCS-WAVE table</td></tr>
           <tr><td>Bad pixels</td><td>SPHEREx Explanatory Supplement v2.1, Table 16</td></tr>
           <tr><td>Zodiacal glow</td><td>The archive's model (ZODI layer), subtracted on request</td></tr>
-          <tr><td>Star positions and motions</td><td>Gaia DR3, ESA</td></tr>
-          <tr><td>Names to positions</td><td>CDS Sesame, Strasbourg</td></tr>
+          <tr><td>Star positions and motions</td><td>Gaia DR3, ESA (or the same catalogue from the CfA VizieR mirror)</td></tr>
+          <tr><td>Names to positions</td><td>CDS Sesame, Strasbourg (or its CfA mirror). Positions are moved along their proper motion to 2026.0</td></tr>
         </tbody>
       </table>
       <h2 className="text-[22px] mt-8 mb-2">How we show it</h2>

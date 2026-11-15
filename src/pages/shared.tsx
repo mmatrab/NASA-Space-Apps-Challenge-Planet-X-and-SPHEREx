@@ -2,21 +2,28 @@
 import { useState } from 'react';
 import { resolveName, type ImageRecord } from '../lib/api.ts';
 import { flagNames } from '../lib/flags.ts';
-import { formatDec, formatRa, parsePosition } from '../lib/coords.ts';
+import { formatDec, formatRa, parsePosition, propagate } from '../lib/coords.ts';
 import { sampleAt } from '../lib/frames.ts';
-import { ARCHIVE_EXAMPLE, type Target } from '../lib/targets.ts';
+import { ARCHIVE_EXAMPLE, VIEW_EPOCH, type Target } from '../lib/targets.ts';
 import type { SpectrumPoint } from '../components/Spectrum.tsx';
 import type { Position, Sky } from '../useSky.ts';
 
 /** Turns what the visitor typed (or a suggested target) into a position. */
 export async function findPosition(text: string, target?: Target): Promise<Position> {
   if (target?.ra !== undefined && target.dec !== undefined) {
-    return { ra: target.ra, dec: target.dec, label: target.label, source: target.coordsSource ?? '' };
+    const moved = target.pmra !== undefined && target.pmdec !== undefined && target.epoch !== undefined;
+    const p = moved ? propagate(target.ra, target.dec, target.pmra!, target.pmdec!, target.epoch!, VIEW_EPOCH) : { ra: target.ra, dec: target.dec };
+    return { ra: p.ra, dec: p.dec, label: target.label, source: `${target.coordsSource ?? ''}${moved ? `, moved with its proper motion to ${VIEW_EPOCH.toFixed(1)}` : ''}` };
   }
   const typed = target ? null : parsePosition(text);
   if (typed) return { ...typed, label: `RA ${formatRa(typed.ra)} Dec ${formatDec(typed.dec)}`, source: 'typed coordinates' };
   const r = await resolveName(target?.resolve ?? text);
-  return { ra: r.ra, dec: r.dec, label: target?.label ?? text, source: `CDS Sesame${r.name ? ` (${r.name})` : ''}` };
+  // Sesame gives ICRS at epoch J2000.0; fast stars must be moved to the SPHEREx dates.
+  if (r.pmra !== null && r.pmdec !== null) {
+    const p = propagate(r.ra, r.dec, r.pmra, r.pmdec, 2000.0, VIEW_EPOCH);
+    return { ra: p.ra, dec: p.dec, label: target?.label ?? text, source: `${r.source}${r.name ? ` (${r.name})` : ''}, moved with its proper motion to ${VIEW_EPOCH.toFixed(1)}` };
+  }
+  return { ra: r.ra, dec: r.dec, label: target?.label ?? text, source: `${r.source}${r.name ? ` (${r.name})` : ''}` };
 }
 
 export function SearchBox({ onFind, compact }: { onFind: (text: string) => void; compact?: boolean }) {
@@ -76,11 +83,19 @@ export function LoadStatus({ sky }: { sky: Sky }) {
   }
   if (!progress) return position ? <p className="mut">Asking IRSA which SPHEREx images cover this spot…</p> : null;
   if (progress.total === 0) return <p className="mut">No SPHEREx image covers this spot with the selected detectors yet.</p>;
+  const fromIndex = searchInfo?.includes('our index');
   return (
     <div aria-live="polite">
+      {fromIndex && (
+        <p className="alert mb-3 text-[14px]">
+          IRSA's image search is down, so this list comes from <b>our own index</b> of this target, built from NASA's
+          public SPHEREx archive on AWS ({searchInfo?.match(/built ([0-9-]+)/)?.[1] ?? 'see About'}). The images are real; images added
+          after that date are not included.
+        </p>
+      )}
       <div className="bar-progress"><i style={{ width: `${(100 * progress.done) / progress.total}%` }} /></div>
       <p className="lbl mt-1.5">
-        {progress.done} / {progress.total} images loaded{progress.failed ? ` · ${progress.failed} failed` : ''}{searchInfo ? ` · ${searchInfo}` : ''}
+        {progress.done} / {progress.total} images loaded{progress.failed ? ` · ${progress.failed} failed` : ''}{searchInfo && !fromIndex ? ` · ${searchInfo}` : ''}
       </p>
     </div>
   );
