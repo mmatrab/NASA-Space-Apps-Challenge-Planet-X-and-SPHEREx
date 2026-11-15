@@ -16,6 +16,7 @@ changing objects stand out.
 | --- | --- |
 | [`docs/challenge-brief.md`](docs/challenge-brief.md) | The challenge text, objectives, test targets and resources, as published |
 | [`docs/decisions.md`](docs/decisions.md) | Decisions and open questions, newest first |
+| [`FEATURES.md`](FEATURES.md) | Features we built so far, how they were verified, and where the code is (for the team, judges and AI agents) |
 
 ## Ground rules (inherited from ORBIT OS)
 
