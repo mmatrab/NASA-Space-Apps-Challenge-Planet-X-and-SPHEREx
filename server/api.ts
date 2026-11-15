@@ -10,7 +10,8 @@
  *   GET /api/gaia?ra=&dec=&radius=      Gaia DR3 stars with proper motions (ESA Gaia archive)
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { hduRanges } from '../src/lib/fits.ts';
 import { propagate } from '../src/lib/coords.ts';
@@ -217,10 +218,19 @@ async function listImagesSia(ra: number, dec: number): Promise<ImageRecord[]> {
 const cutoutCache = new Map<string, Buffer>();
 const CACHE_MAX = 600;
 
+/** Cutouts are also kept on disk (data/cache, not committed): a target viewed once reloads instantly. */
+const CACHE_DIR = path.resolve(process.cwd(), 'data', 'cache', 'cutouts');
+
 async function cutout(path: string, ra: number, dec: number, size: number): Promise<Buffer> {
   const key = `${path}|${ra.toFixed(6)}|${dec.toFixed(6)}|${size}`;
   const hit = cutoutCache.get(key);
   if (hit) return hit;
+  const file = `${CACHE_DIR}/${createHash('sha1').update(key).digest('hex')}.fits`;
+  const onDisk = await readFile(file).catch(() => null);
+  if (onDisk) {
+    cutoutCache.set(key, onDisk);
+    return onDisk;
+  }
   const url = `${IRSA}/${path}?center=${ra},${dec}d&size=${size}`;
   const res = await get(url, 'IRSA cutout service', 120_000);
   const raw = Buffer.from(await res.arrayBuffer());
@@ -230,6 +240,7 @@ async function cutout(path: string, ra: number, dec: number, size: number): Prom
   const slim = Buffer.concat(keep.map((r) => raw.subarray(r.start, r.end)));
   cutoutCache.set(key, slim);
   if (cutoutCache.size > CACHE_MAX) cutoutCache.delete(cutoutCache.keys().next().value!);
+  await mkdir(CACHE_DIR, { recursive: true }).then(() => writeFile(file, slim)).catch(() => undefined);
   return slim;
 }
 

@@ -4,6 +4,8 @@
  * Used by the API as a fallback when IRSA's image search (TAP/SIA) is unavailable.
  *
  *   node scripts/build-target-index.ts            (behind a proxy: NODE_USE_ENV_PROXY=1)
+ *   node scripts/build-target-index.ts --only=barnard --weeks=dr1/2025W35_1A,qr3/2026W34_1A
+ *       rescans one target in the given weekly folders and updates its entry in the existing file
  *
  * How it works, for each target:
  *  1. Target position (SIMBAD via the CDS Sesame service, CfA mirror) moved along its proper motion.
@@ -161,6 +163,11 @@ const sepDeg = (ra1: number, d1: number, ra2: number, d2: number) => {
   return Math.acos(Math.min(1, Math.max(-1, c))) / D2R;
 };
 
+const arg = (name: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.split('=')[1];
+const ONLY = arg('only')?.split(',');
+const WEEKS = arg('weeks')?.split(',');
+const OUT_FILE = path.resolve(import.meta.dirname, '..', 'data', 'index', 'spherex-test-targets.json');
+
 async function main() {
   const startedAt = new Date().toISOString();
   // All weekly folders with their newest processing version.
@@ -170,7 +177,9 @@ async function main() {
     for (const w of weeks) {
       const versions = (await list(w)).prefixes.filter((p) => /l2b-v\d+/.test(p)).sort((a, b) => Number(a.match(/l2b-v(\d+)/)![1]) - Number(b.match(/l2b-v(\d+)/)![1]));
       const mjd = weekMjd(w);
-      if (versions.length && mjd) folders.push({ release: rel, week: w.split('/').at(-2)!, prefix: versions.at(-1)!, mjd });
+      const week = w.split('/').at(-2)!;
+      if (WEEKS && !WEEKS.includes(`${rel}/${week}`)) continue;
+      if (versions.length && mjd) folders.push({ release: rel, week, prefix: versions.at(-1)!, mjd });
     }
   }
   console.log(`${folders.length} weekly folders in ${RELEASES.join(', ')}`);
@@ -205,11 +214,25 @@ async function main() {
   });
   console.log(`Survey map: ${[...folderPoints.values()].reduce((s, p) => s + p.length, 0)} pointings read`);
 
-  const results: Record<string, unknown> = {};
-  for (const t of TARGETS) {
+  let previous: { targets?: Record<string, unknown> } = {};
+  try { previous = JSON.parse(await (await import('node:fs/promises')).readFile(OUT_FILE, 'utf8')); } catch { /* first run */ }
+  const results: Record<string, unknown> = { ...(previous.targets ?? {}) };
+  const write = async () => {
+    const out = {
+      generatedAtUtc: new Date().toISOString(),
+      startedAtUtc: startedAt,
+      source: 'NASA/IRSA SPHEREx public bucket s3://nasa-irsa-spherex (Level 2 spectral images), file headers read directly',
+      method: "See scripts/build-target-index.ts: weekly folders chosen from a survey map read from the data, headers sampled every 4th exposure, containment checked with each file's TAN-SIP WCS at its own date.",
+      releases: RELEASES,
+      targets: results,
+    };
+    await mkdir(path.dirname(OUT_FILE), { recursive: true });
+    await writeFile(OUT_FILE, JSON.stringify(out, null, 1) + '\n');
+  };
+  for (const t of TARGETS.filter((x) => !ONLY || ONLY.includes(x.id))) {
     const pos = await resolve(t);
     const at = (mjd: number) => propagate(pos.ra, pos.dec, pos.pmra, pos.pmdec, pos.epoch, mjdToJulianYear(mjd));
-    const candidates = folders.filter((f) =>
+    const candidates = WEEKS ? folders : folders.filter((f) =>
       (folderPoints.get(f.prefix) ?? []).some((pt) => {
         const p = at(pt.mjd);
         return dLon(pt.lon, ecliptic(p.ra, p.dec)[0]) <= NEAR_LON_DEG || sepDeg(pt.ra, pt.dec, p.ra, p.dec) <= NEAR_SKY_DEG;
@@ -249,21 +272,10 @@ async function main() {
     }
     found.sort((a, b) => a.mjd - b.mjd);
     results[t.id] = { name: t.name, position: pos, weeksScanned: scanned, count: found.length, images: found };
+    await write(); // after every target, so a long run can be used before it ends
+    console.log(`Saved ${t.name}: ${found.length} images`);
   }
-
-  const out = {
-    generatedAtUtc: new Date().toISOString(),
-    startedAtUtc: startedAt,
-    source: 'NASA/IRSA SPHEREx public bucket s3://nasa-irsa-spherex (Level 2 spectral images), file headers read directly',
-    method: 'See scripts/build-target-index.ts: weeks near 90° solar elongation, headers sampled every 4th exposure, containment checked with each file\'s TAN-SIP WCS at its own date.',
-    releases: RELEASES,
-    targets: results,
-  };
-  const dir = path.resolve(import.meta.dirname, '..', 'data', 'index');
-  await mkdir(dir, { recursive: true });
-  const file = path.join(dir, 'spherex-test-targets.json');
-  await writeFile(file, JSON.stringify(out, null, 1) + '\n');
-  console.log(`\nWrote ${file}`);
+  console.log(`\nWrote ${OUT_FILE}`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

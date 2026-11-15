@@ -23,7 +23,12 @@ export function Spectrum({ points, epochLabels }: { points: SpectrumPoint[]; epo
   const [hidden, setHidden] = useState<Set<number>>(new Set());
   const shown = points.filter((p) => !hidden.has(p.epoch));
   if (!points.length) {
-    return <p className="mut">No usable pixel here in the loaded images.</p>;
+    return (
+      <p className="mut">
+        No usable pixel here: it is flagged in every loaded image (often because a bright star saturates it). Click next to it, or
+        turn off “Hide flagged pixels” to see the raw values.
+      </p>
+    );
   }
   const xs = [0.7, 5.1];
   const vals = shown.flatMap((p) => [p.value - (p.error ?? 0), p.value + (p.error ?? 0)]);

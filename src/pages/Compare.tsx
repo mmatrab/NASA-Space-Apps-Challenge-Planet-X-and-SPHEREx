@@ -128,6 +128,7 @@ export function Compare({ sky, onFind, finding, findError }: { sky: Sky; onFind:
                   <label className="lbl" htmlFor="vb">To</label>{select(b, setB, 'vb')}
                 </div>
                 <label className="flex gap-2 mt-3 text-[14px]"><input type="checkbox" checked={showGaia} onChange={(e) => setShowGaia(e.target.checked)} /> Gaia stars at each date</label>
+                <label className="flex gap-2 mt-1 text-[14px]"><input type="checkbox" checked={sky.maskBad} onChange={(e) => sky.setMaskBad(e.target.checked)} /> Hide flagged pixels</label>
                 <button type="button" className="btn k mt-3" onClick={() => void onSaveGif()} disabled={gifBusy}>{gifBusy ? 'Making GIF…' : 'Save blink GIF'}</button>
                 {gifNote && <p className="mut text-[13px] mt-1" role="status">{gifNote}</p>}
               </div>

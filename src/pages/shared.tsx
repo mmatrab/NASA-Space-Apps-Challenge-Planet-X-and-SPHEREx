@@ -96,6 +96,15 @@ export function LoadStatus({ sky }: { sky: Sky }) {
       <div className="bar-progress"><i style={{ width: `${(100 * progress.done) / progress.total}%` }} /></div>
       <p className="lbl mt-1.5">
         {progress.done} / {progress.total} images loaded{progress.failed ? ` · ${progress.failed} failed` : ''}{searchInfo && !fromIndex ? ` · ${searchInfo}` : ''}
+        {sky.available > progress.total && progress.done === progress.total && (
+          <>
+            {' · '}
+            {progress.total} of {sky.available} shown, spread over time ·{' '}
+            <button type="button" className="underline bg-transparent border-0 p-0 cursor-pointer lbl" onClick={() => void sky.loadAll()}>
+              Load all {sky.available}
+            </button>
+          </>
+        )}
       </p>
     </div>
   );

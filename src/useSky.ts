@@ -6,8 +6,9 @@ import { frameFromFits, frameScale, groupEpochs, makeGrid, mjdToIso, stack, toGr
 
 export const FOVS = [1, 2, 3, 5, 8];
 export const DETECTOR_RANGES = ['0.75–1.09', '1.10–1.62', '1.63–2.41', '2.42–3.82', '3.83–4.41', '4.42–5.00'];
-const MAX_FRAMES = 300;
-const CONCURRENCY = 6;
+/** Images loaded by default, spread evenly in time (each IRSA cutout takes ~3 s); "Load all" lifts it. */
+export const DEFAULT_MAX_IMAGES = 90;
+const CONCURRENCY = 12;
 
 export interface Position {
   ra: number;
@@ -46,7 +47,8 @@ export function useSky() {
   const [gaiaNote, setGaiaNote] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const load = useCallback(async (pos: Position, opts: { fov: number; detectors: number[]; only?: ImageRecord[] }) => {
+  const [available, setAvailable] = useState(0);
+  const load = useCallback(async (pos: Position, opts: { fov: number; detectors: number[]; only?: ImageRecord[]; maxImages?: number }) => {
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
@@ -86,9 +88,11 @@ export function useSky() {
       return;
     }
     let chosen = list.filter((im) => im.detector === null || opts.detectors.includes(im.detector));
-    if (chosen.length > MAX_FRAMES) {
-      const step = chosen.length / MAX_FRAMES;
-      chosen = Array.from({ length: MAX_FRAMES }, (_, i) => chosen[Math.floor(i * step)]);
+    setAvailable(chosen.length);
+    const max = opts.maxImages ?? DEFAULT_MAX_IMAGES;
+    if (chosen.length > max) {
+      const step = chosen.length / max;
+      chosen = Array.from({ length: max }, (_, i) => chosen[Math.floor(i * step)]);
     }
     setImages(chosen);
     setProgress({ done: 0, total: chosen.length, failed: 0 });
@@ -116,6 +120,7 @@ export function useSky() {
   }, []);
 
   const go = useCallback((pos: Position, only?: ImageRecord[]) => load(pos, { fov, detectors, only }), [load, fov, detectors]);
+  const loadAll = useCallback(() => position && load(position, { fov, detectors, maxImages: 100000 }), [load, position, fov, detectors]);
 
   const grid = useMemo(() => {
     if (!position || !frames.length) return null;
@@ -150,8 +155,8 @@ export function useSky() {
 
   return {
     fov, setFov, detectors, setDetectors, subtractZodi, setSubtractZodi, maskBad, setMaskBad,
-    position, images, searchInfo, frames, progress, loadError, stars, gaiaNote,
-    load, go, grid, gridFrames, visits, visitOf,
+    position, images, searchInfo, frames, progress, loadError, stars, gaiaNote, available,
+    load, go, loadAll, grid, gridFrames, visits, visitOf,
     describe: (p: Position) => `RA ${formatRa(p.ra)} · Dec ${formatDec(p.dec)}`,
     visitRange: (v: Visit) => (fmtDate(v.startMjd) === fmtDate(v.endMjd) ? fmtDate(v.startMjd) : `${fmtDate(v.startMjd)} – ${fmtDate(v.endMjd)}`),
   };
