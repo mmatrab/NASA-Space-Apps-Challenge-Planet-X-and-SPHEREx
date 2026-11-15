@@ -32,19 +32,22 @@ That serves the app and its API on http://localhost:8080 (set `PORT` to change i
 
 | Feature | How |
 | --- | --- |
-| Choose a patch of sky | RA/Dec in sexagesimal (`08h55m10.831s`, `-7d14m42.53s`) or degrees, or an object name (CDS Sesame) |
-| Challenge test targets | One click: Barnard's Star, Epsilon Indi B, WISE 0855, RW Aurigae, R Draconis |
+| Choose a patch of sky | One field: an object name (CDS Sesame) or RA Dec, e.g. `08:55:10.8 -07:14:42` or `133.795 -7.245` |
+| Start without knowing where to look | Five suggested targets (the challenge's test objects), each with what it is and what to look for |
 | Field of view | 1, 2, 3, 5 or 8 arcminutes |
 | Choose wavelengths | Detectors D1–D6 (0.75–5.00 µm), each covering part of the 102 bands |
 | Play the sky over time | One stacked frame per six-month survey (best for motion), or every exposure in time order; speed, step, slider, keyboard |
+| Compare two visits | **Compare** tab: side by side, blink, or difference between any two six-month visits |
 | Make motion stand out | Show the images, the difference from the median sky, or the difference from the first frame |
 | Add frames for signal-to-noise | Survey frames average all exposures of that visit |
 | Spectrum on the fly | Click a pixel: one point per exposure, at its own wavelength, coloured by survey epoch |
 | Compare with Gaia | Gaia DR3 stars drawn where their proper motion puts them on each frame's date; fast movers in gold |
 | Data quality | Zodiacal light model subtracted (optional); flagged pixels hidden or tinted red; quality flags listed per pixel |
 | Provenance | Each frame lists date, detector, wavelength, observation ID, exposure, quality flag, pipeline version and a link to the full file |
-| Share and embed | The URL holds `ra`, `dec`, `fov` and `det`, e.g. `/?ra=133.795129&dec=-7.245147&fov=3` |
+| Share and embed | The URL holds `ra`, `dec`, `fov`, `det` and `tab`, e.g. `/?ra=133.795129&dec=-7.245147&fov=3&tab=compare` |
 | Save | Any frame as a PNG with a caption (target, date, detector, processing, credit) |
+
+The home page follows three steps: **1 Choose a target → 2 Play the visits → 3 Inspect a pixel**.
 
 ## Where the data comes from
 

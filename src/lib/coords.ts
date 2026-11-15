@@ -102,3 +102,26 @@ export function propagate(
 export function mjdToJulianYear(mjd: number): number {
   return 2000 + (mjd - 51544.5) / 365.25;
 }
+
+/**
+ * Reads "RA Dec" typed in one field: "133.795 -7.245", "08h55m10.8s -7d14m42s",
+ * "08:55:10.8, -07:14:42", "08 55 10.8 -07 14 42". Returns null when the text is not a position
+ * (it is then treated as an object name).
+ */
+export function parsePosition(text: string): SkyPosition | null {
+  const s = text.trim().replace(/[−–]/g, '-');
+  if (!s) return null;
+  const tryPair = (a: string, b: string) => {
+    const ra = parseRa(a);
+    const dec = parseDec(b);
+    return ra !== null && dec !== null ? { ra, dec } : null;
+  };
+  if (s.includes(',')) {
+    const [a, b, ...rest] = s.split(',');
+    return rest.length ? null : tryPair(a, b ?? '');
+  }
+  const t = s.split(/\s+/);
+  if (t.length === 2) return tryPair(t[0], t[1]);
+  if (t.length === 6) return tryPair(t.slice(0, 3).join(' '), t.slice(3).join(' '));
+  return null;
+}

@@ -11,8 +11,8 @@ export interface SpectrumPoint {
   flags: string[];
 }
 
-/** Colour per survey epoch; checked with a colour-vision validator on this dark background. */
-export const EPOCH_COLOURS = ['#3987e5', '#d95926', '#199e70', '#d55181', '#c98500', '#9085e9'];
+/** Colour per survey visit on a white background; the first three are colour-blind-safe as a set. */
+export const EPOCH_COLOURS = ['#2a78d6', '#eb6834', '#1baf7a', '#e87ba4', '#eda100', '#6250d6'];
 
 const W = 560;
 const H = 260;
@@ -23,7 +23,7 @@ export function Spectrum({ points, epochLabels }: { points: SpectrumPoint[]; epo
   const [hidden, setHidden] = useState<Set<number>>(new Set());
   const shown = points.filter((p) => !hidden.has(p.epoch));
   if (!points.length) {
-    return <p className="label">No unflagged pixel at this position in the loaded images.</p>;
+    return <p className="mut">No usable pixel here in the loaded images.</p>;
   }
   const xs = [0.7, 5.1];
   const vals = shown.flatMap((p) => [p.value - (p.error ?? 0), p.value + (p.error ?? 0)]);
@@ -44,13 +44,13 @@ export function Spectrum({ points, epochLabels }: { points: SpectrumPoint[]; epo
           <button
             key={e}
             type="button"
-            className="btn"
+            className="pill"
             aria-pressed={!hidden.has(e)}
             onClick={() => setHidden((s) => { const n = new Set(s); if (n.has(e)) n.delete(e); else n.add(e); return n; })}
-            style={{ opacity: hidden.has(e) ? 0.5 : 1 }}
+            style={{ opacity: hidden.has(e) ? 0.45 : 1, background: '#fff', color: '#000' }}
           >
-            <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: EPOCH_COLOURS[e % EPOCH_COLOURS.length] }} />
-            {epochLabels[e] ?? `Epoch ${e + 1}`} ({points.filter((p) => p.epoch === e).length})
+            <span className="inline-block w-2.5 h-2.5 rounded-full mr-1.5" style={{ background: EPOCH_COLOURS[e % EPOCH_COLOURS.length] }} />
+            {epochLabels[e] ?? `Visit ${e + 1}`} ({points.filter((p) => p.epoch === e).length})
           </button>
         ))}
         <button type="button" className="btn ml-auto" onClick={() => setTable((t) => !t)}>
@@ -59,16 +59,16 @@ export function Spectrum({ points, epochLabels }: { points: SpectrumPoint[]; epo
       </div>
       {table ? (
         <div className="max-h-72 overflow-auto">
-          <table className="w-full text-xs tabular-nums">
-            <thead className="sticky top-0" style={{ background: 'var(--panel)' }}>
-              <tr className="text-left label">
+          <table className="t">
+            <thead className="sticky top-0 bg-white">
+              <tr>
                 <th className="p-1">Wavelength (µm)</th><th className="p-1">Value (MJy/sr)</th><th className="p-1">± (MJy/sr)</th>
                 <th className="p-1">Detector</th><th className="p-1">Date (UTC)</th><th className="p-1">Flags</th>
               </tr>
             </thead>
             <tbody>
               {[...shown].sort((a, b) => a.wavelength - b.wavelength).map((p, i) => (
-                <tr key={i} className="border-t" style={{ borderColor: 'var(--line)' }}>
+                <tr key={i}>
                   <td className="p-1">{p.wavelength.toFixed(4)}</td>
                   <td className="p-1">{p.value.toPrecision(4)}</td>
                   <td className="p-1">{p.error === null ? '—' : p.error.toPrecision(2)}</td>
@@ -84,19 +84,19 @@ export function Spectrum({ points, epochLabels }: { points: SpectrumPoint[]; epo
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label={`Spectrum: ${shown.length} measurements between 0.7 and 5.1 micrometres. Use Show table for the values.`}>
           {yTicks.map((t) => (
             <g key={t}>
-              <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="#1f2a44" />
-              <text x={PAD.l - 6} y={y(t) + 4} textAnchor="end" fontSize={11} fill="#9aa7c2">{t.toPrecision(3)}</text>
+              <line x1={PAD.l} x2={W - PAD.r} y1={y(t)} y2={y(t)} stroke="#e6e6e6" />
+              <text x={PAD.l - 6} y={y(t) + 4} textAnchor="end" fontSize={11} fill="#626262">{t.toPrecision(3)}</text>
             </g>
           ))}
-          {lo < 0 && hi > 0 && <line x1={PAD.l} x2={W - PAD.r} y1={y(0)} y2={y(0)} stroke="#3a4a70" />}
+          {lo < 0 && hi > 0 && <line x1={PAD.l} x2={W - PAD.r} y1={y(0)} y2={y(0)} stroke="#999" />}
           {[1, 2, 3, 4, 5].map((t) => (
             <g key={t}>
-              <line x1={x(t)} x2={x(t)} y1={H - PAD.b} y2={H - PAD.b + 4} stroke="#9aa7c2" />
-              <text x={x(t)} y={H - PAD.b + 16} textAnchor="middle" fontSize={11} fill="#9aa7c2">{t}</text>
+              <line x1={x(t)} x2={x(t)} y1={H - PAD.b} y2={H - PAD.b + 4} stroke="#626262" />
+              <text x={x(t)} y={H - PAD.b + 16} textAnchor="middle" fontSize={11} fill="#626262">{t}</text>
             </g>
           ))}
-          <text x={(W + PAD.l) / 2} y={H - 6} textAnchor="middle" fontSize={12} fill="#c8d2e8">Wavelength (µm, near-infrared)</text>
-          <text x={14} y={H / 2} textAnchor="middle" fontSize={12} fill="#c8d2e8" transform={`rotate(-90 14 ${H / 2})`}>MJy/sr</text>
+          <text x={(W + PAD.l) / 2} y={H - 6} textAnchor="middle" fontSize={12} fill="#0b0b0b">Wavelength (µm, near-infrared)</text>
+          <text x={14} y={H / 2} textAnchor="middle" fontSize={12} fill="#0b0b0b" transform={`rotate(-90 14 ${H / 2})`}>MJy/sr</text>
           {shown.map((p, i) => {
             const c = EPOCH_COLOURS[p.epoch % EPOCH_COLOURS.length];
             return (

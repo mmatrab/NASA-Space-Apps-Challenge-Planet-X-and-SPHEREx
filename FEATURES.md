@@ -17,13 +17,14 @@ subtract them, overlay Gaia, and build a spectrum when you click a pixel.
 
 | Challenge item | What we built | Status |
 | --- | --- | --- |
-| Enter RA/Dec, see a series of images like a video | Sexagesimal or degree input, name lookup, player with speed, step, slider, keyboard | Built and tested |
+| Enter RA/Dec, see a series of images like a video | One field for a name or RA Dec; three-step home page (choose, play, inspect); player with speed, step, slider, keyboard | Built and tested |
+| Help people who do not know where to look | Five suggested targets with what each one is and what to look for | Built |
 | Test targets | One-click buttons for the five targets; WISE 0855 uses the coordinates given in the brief | Built; image list waits on IRSA (see below) |
 | Easy to update with new data releases | Image list queried live (TAP, SIA2 fallback); newest pipeline version kept when releases overlap; SIA2 collections listed in one place (`server/api.ts`) | Built |
 | Display the 102 bands creatively | Per-pixel wavelength from each image's `WCS-WAVE` table; detector filter D1–D6 | Built and tested |
 | Add frames from each detector array for signal-to-noise | "One frame per survey" mode averages all exposures of a visit | Built and tested |
 | Generate spectra on the fly | Click a pixel: one point per exposure at its own wavelength, with error bars, coloured by survey epoch, plus a table | Built and tested |
-| Add or subtract images taken at different times | Difference from the median sky, or from the first frame | Built and tested |
+| Add or subtract images taken at different times | Difference from the median sky or the first frame; **Compare** tab with two visits side by side, blinking, or subtracted | Built and tested |
 | Choose the field of view | 1 to 8 arcminutes | Built |
 | Overlay Gaia or WISE | Gaia DR3 stars propagated to each frame's date with their proper motion; fast movers highlighted | Built; Gaia unreachable from our build machine |
 | Coordinates in the URL, embeddable | `?ra=&dec=&fov=&det=` restores the view | Built and tested |
@@ -81,7 +82,8 @@ Extras:
 | Coordinates, proper motion | `src/lib/coords.ts` |
 | Display stretch | `src/lib/render.ts` |
 | Test targets | `src/lib/targets.ts` |
-| UI | `src/App.tsx`, `src/components/Spectrum.tsx` |
+| UI | `src/App.tsx` (tabs), `src/pages/Explore.tsx`, `src/pages/Compare.tsx`, `src/pages/About.tsx`, `src/components/SkyCanvas.tsx`, `src/components/Spectrum.tsx` |
+| Loading and survey visits | `src/useSky.ts` |
 | API server (IRSA, Gaia, CDS) | `server/api.ts`, `server/index.ts` |
 | Tests and real-data fixture | `tests/`, `tests/fixtures/spherex-qr3-d1-cutout.fits` |
 | Challenge text | `docs/challenge-brief.md` |

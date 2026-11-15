@@ -27,3 +27,20 @@ describe('coordinates', () => {
     expect(mjdToJulianYear(57388.5)).toBeCloseTo(2016.0, 9);
   });
 });
+
+import { parsePosition } from '../src/lib/coords.ts';
+
+describe('one-field position input', () => {
+  it('accepts the usual ways of typing RA and Dec', () => {
+    for (const s of ['133.795129 -7.245147', '08h55m10.831s -7d14m42.53s', '08:55:10.831, -07:14:42.53', '08 55 10.831 -07 14 42.53']) {
+      const p = parsePosition(s)!;
+      expect(p.ra).toBeCloseTo(133.795129, 5);
+      expect(p.dec).toBeCloseTo(-7.245147, 5);
+    }
+  });
+  it('treats names as names', () => {
+    expect(parsePosition("Barnard's Star")).toBeNull();
+    expect(parsePosition('R Dra')).toBeNull();
+    expect(parsePosition('WISE 0855')).toBeNull();
+  });
+});
