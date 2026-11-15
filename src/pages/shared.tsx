@@ -49,7 +49,13 @@ export function LoadStatus({ sky }: { sky: Sky }) {
   if (loadError) {
     return (
       <div className="alert" role="alert">
-        <p className="m-0"><b>No image list from IRSA right now.</b> <span className="mut">{loadError}</span></p>
+        <p className="m-0"><b>IRSA's image search is not responding.</b></p>
+        <p className="m-0 mt-1">
+          {/502|503|504/.test(loadError)
+            ? 'The archive (NASA/IPAC) answers with a server error on its side, so the list of SPHEREx images for this spot cannot be fetched. It is not your connection. Try again later.'
+            : 'The list of SPHEREx images for this spot could not be fetched.'}
+        </p>
+        <details className="mt-2 text-[13px] mut"><summary className="cursor-pointer">Technical details</summary>{loadError}</details>
         <div className="flex flex-wrap gap-2 mt-3">
           <button type="button" className="btn" onClick={() => position && void sky.go(position)}>Retry</button>
           <button
@@ -107,4 +113,11 @@ export function Pill({ on, onClick, children, disabled }: { on: boolean; onClick
       {children}
     </button>
   );
+}
+
+/** "Looking up…" and name-service errors, shown right under the place the visitor clicked. */
+export function FindStatus({ finding, findError }: { finding: string | null; findError: string | null }) {
+  if (finding) return <p className="mut text-[14px] mt-3" role="status">Looking up “{finding}”…</p>;
+  if (findError) return <p className="alert mt-3" role="alert">{findError}</p>;
+  return null;
 }

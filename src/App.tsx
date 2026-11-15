@@ -18,6 +18,7 @@ export function App() {
   });
   const [activeTarget, setActiveTarget] = useState<string | null>(null);
   const [findError, setFindError] = useState<string | null>(null);
+  const [finding, setFinding] = useState<string | null>(null);
 
   const changeTab = (t: Tab) => {
     setTab(t);
@@ -30,11 +31,20 @@ export function App() {
 
   const onFind = async (text: string, target?: Target) => {
     setFindError(null);
-    setActiveTarget(target?.id ?? null);
+    setFinding(target?.label ?? text);
     try {
-      void sky.go(await findPosition(text, target));
+      const pos = await findPosition(text, target);
+      setActiveTarget(target?.id ?? null);
+      void sky.go(pos);
     } catch (e) {
-      setFindError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setFindError(
+        /Sesame|CDS/.test(msg) && !/No object named/.test(msg)
+          ? `The name service (CDS, Strasbourg) is not responding, so “${target?.label ?? text}” cannot be turned into a position. Type its RA and Dec instead.`
+          : msg
+      );
+    } finally {
+      setFinding(null);
     }
   };
 
@@ -64,12 +74,9 @@ export function App() {
           ))}
         </nav>
       </header>
-      {findError && (
-        <div className="wrap pt-4"><p className="alert" role="alert">{findError}</p></div>
-      )}
       <main>
-        {tab === 'explore' && <Explore sky={sky} onFind={onFind} onCompare={() => changeTab('compare')} activeTarget={activeTarget} />}
-        {tab === 'compare' && <Compare sky={sky} onFind={onFind} />}
+        {tab === 'explore' && <Explore sky={sky} onFind={onFind} onCompare={() => changeTab('compare')} activeTarget={activeTarget} finding={finding} findError={findError} />}
+        {tab === 'compare' && <Compare sky={sky} onFind={onFind} finding={finding} findError={findError} />}
         {tab === 'about' && <About />}
       </main>
       <footer className="wrap py-8 mut text-[13px]" style={{ borderTop: '1px solid var(--line)' }}>

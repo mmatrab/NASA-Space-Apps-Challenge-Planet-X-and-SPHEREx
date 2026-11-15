@@ -45,7 +45,7 @@ That serves the app and its API on http://localhost:8080 (set `PORT` to change i
 | Data quality | Zodiacal light model subtracted (optional); flagged pixels hidden or tinted red; quality flags listed per pixel |
 | Provenance | Each frame lists date, detector, wavelength, observation ID, exposure, quality flag, pipeline version and a link to the full file |
 | Share and embed | The URL holds `ra`, `dec`, `fov`, `det` and `tab`, e.g. `/?ra=133.795129&dec=-7.245147&fov=3&tab=compare` |
-| Save | Any frame as a PNG with a caption (target, date, detector, processing, credit) |
+| Save | Any frame as a PNG, the whole sequence as a looping animated GIF, or a two-visit blink GIF from Compare; each frame captioned (target, date, processing, credit) |
 
 The home page follows three steps: **1 Choose a target → 2 Play the visits → 3 Inspect a pixel**.
 

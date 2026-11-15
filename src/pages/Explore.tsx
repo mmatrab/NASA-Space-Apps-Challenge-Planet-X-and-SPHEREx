@@ -4,10 +4,11 @@ import { formatDec, formatRa } from '../lib/coords.ts';
 import { difference, median } from '../lib/frames.ts';
 import { percentiles, symmetricLimit, type Stretch } from '../lib/render.ts';
 import { TEST_TARGETS, type Target } from '../lib/targets.ts';
-import { SkyCanvas, SKY_VIEW } from '../components/SkyCanvas.tsx';
+import { SkyCanvas } from '../components/SkyCanvas.tsx';
+import { fileStem, saveGif, savePng } from '../lib/exportMedia.ts';
 import { Spectrum } from '../components/Spectrum.tsx';
 import { DETECTOR_RANGES, FOVS, type Sky } from '../useSky.ts';
-import { LoadStatus, Pill, SearchBox, spectrumAt } from './shared.tsx';
+import { FindStatus, LoadStatus, Pill, SearchBox, spectrumAt } from './shared.tsx';
 
 type Mode = 'visits' | 'exposures';
 type Show = 'image' | 'diff-median' | 'diff-first';
@@ -21,8 +22,10 @@ interface Frame {
   members: Sky['gridFrames'];
 }
 
-export function Explore({ sky, onFind, onCompare, activeTarget }: {
+export function Explore({ sky, onFind, onCompare, activeTarget, finding, findError }: {
   sky: Sky;
+  finding: string | null;
+  findError: string | null;
   onFind: (text: string, target?: Target) => void;
   onCompare: () => void;
   activeTarget: string | null;
@@ -96,29 +99,33 @@ export function Explore({ sky, onFind, onCompare, activeTarget }: {
 
   const spectrum = useMemo(() => spectrumAt(sky, picked), [sky, picked]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const savePng = () => {
-    const cv = viewerRef.current?.querySelector('canvas');
-    if (!cv || !current || !position) return;
-    const out = document.createElement('canvas');
-    out.width = SKY_VIEW;
-    out.height = SKY_VIEW + 64;
-    const g = out.getContext('2d')!;
-    g.fillStyle = '#fff';
-    g.fillRect(0, 0, out.width, out.height);
-    g.drawImage(cv, 0, 0);
-    g.fillStyle = '#0b0b0b';
-    g.font = '13px Helvetica, Arial, sans-serif';
-    [`${position.label} · RA ${formatRa(position.ra)} Dec ${formatDec(position.dec)}`, current.caption, 'NASA SPHEREx data via IRSA · SPHEREx Sky Motion'].forEach((l, i) =>
-      g.fillText(l.slice(0, 80), 8, SKY_VIEW + 18 + i * 17)
-    );
-    out.toBlob((b) => {
-      if (!b) return;
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(b);
-      a.download = `spherex_${position.label.replace(/[^A-Za-z0-9]+/g, '_')}_${current.key}.png`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-    });
+  const [gifBusy, setGifBusy] = useState(false);
+  const [exportNote, setExportNote] = useState<string | null>(null);
+  const frameProps = (f: Frame) => ({
+    grid: grid!, data: f.data, flags: f.flags, showFlags, stretch, mjd: f.mjd, label: f.caption,
+    stars: sky.stars, showGaia, picked,
+  });
+  const captionOf = (f: Frame) => [
+    `${position!.label} · RA ${formatRa(position!.ra)} Dec ${formatDec(position!.dec)} · ${sky.fov}′`,
+    `${f.caption}${show !== 'image' ? ` · ${show === 'diff-median' ? 'minus median sky' : 'minus first frame'}` : ''}`,
+    'NASA SPHEREx data via IRSA · SPHEREx Sky Motion',
+  ];
+  const onSavePng = () => {
+    if (!grid || !current || !position) return;
+    savePng({ props: frameProps(current), caption: captionOf(current) }, `${fileStem(position.label)}_${current.key}`);
+  };
+  const onSaveGif = async () => {
+    if (!grid || !position || !frames.length) return;
+    setGifBusy(true);
+    setExportNote(null);
+    try {
+      const size = await saveGif(frames.map((f) => ({ props: frameProps(f), caption: captionOf(f) })), 1000 / fps, `${fileStem(position.label)}_${mode}`);
+      setExportNote(`GIF saved: ${frames.length} frame${frames.length > 1 ? 's' : ''}, ${(size / 1024).toFixed(0)} KB, ${fps} frames per second.`);
+    } catch (e) {
+      setExportNote(`Could not make the GIF: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setGifBusy(false);
+    }
   };
 
   const toggleDetector = (d: number) => {
@@ -154,6 +161,7 @@ export function Explore({ sky, onFind, onCompare, activeTarget }: {
               </select>
             </label>
           </div>
+          <FindStatus finding={finding} findError={findError} />
         </div>
       </section>
 
@@ -186,9 +194,13 @@ export function Explore({ sky, onFind, onCompare, activeTarget }: {
                   <label className="flex items-center gap-2 lbl">
                     Speed <input type="range" min={0.5} max={8} step={0.5} value={fps} onChange={(e) => setFps(Number(e.target.value))} />
                   </label>
-                  <button type="button" className="btn ml-auto" onClick={savePng}>Save PNG</button>
+                  <span className="ml-auto flex gap-2">
+                    <button type="button" className="btn" onClick={onSavePng}>Save PNG</button>
+                    <button type="button" className="btn k" onClick={() => void onSaveGif()} disabled={gifBusy}>{gifBusy ? 'Making GIF…' : 'Save GIF'}</button>
+                  </span>
                 </div>
                 <p className="lbl mt-2">{current.caption}</p>
+                {exportNote && <p className="mut text-[13px] mt-1" role="status">{exportNote}</p>}
               </div>
 
               <div className="flex flex-col gap-5">

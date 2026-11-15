@@ -34,7 +34,8 @@ subtract them, overlay Gaia, and build a spectrum when you click a pixel.
 Extras:
 
 - Zodiacal light removal using the archive's own model (`ZODI` extension).
-- Save any frame as a captioned PNG.
+- Save any frame as a captioned PNG, or the played sequence as a looping animated GIF (Explore), or a two-visit blink GIF (Compare). Encoder: `gifenc` (MIT, ~5 KB).
+- Clear messages when an archive is down: IRSA's search answering 502 is explained as a server error on the archive's side; a CDS name-service failure asks for RA/Dec instead.
 - Missing data is drawn in dark blue, never as empty sky.
 
 ## Data honesty

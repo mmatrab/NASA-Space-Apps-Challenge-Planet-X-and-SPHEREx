@@ -6,11 +6,12 @@ import { TEST_TARGETS, type Target } from '../lib/targets.ts';
 import { SkyCanvas } from '../components/SkyCanvas.tsx';
 import { Spectrum } from '../components/Spectrum.tsx';
 import type { Sky } from '../useSky.ts';
-import { LoadStatus, SearchBox, spectrumAt } from './shared.tsx';
+import { FindStatus, LoadStatus, SearchBox, spectrumAt } from './shared.tsx';
+import { fileStem, saveGif } from '../lib/exportMedia.ts';
 
 type View = 'side' | 'blink' | 'diff';
 
-export function Compare({ sky, onFind }: { sky: Sky; onFind: (text: string, target?: Target) => void }) {
+export function Compare({ sky, onFind, finding, findError }: { sky: Sky; onFind: (text: string, target?: Target) => void; finding: string | null; findError: string | null }) {
   const { grid, visits, position } = sky;
   const [a, setA] = useState(0);
   const [b, setB] = useState(1);
@@ -41,6 +42,31 @@ export function Compare({ sky, onFind }: { sky: Sky; onFind: (text: string, targ
   }, [va, vb, view]);
 
   const spectrum = useMemo(() => spectrumAt(sky, picked), [sky, picked]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [gifBusy, setGifBusy] = useState(false);
+  const [gifNote, setGifNote] = useState<string | null>(null);
+
+  /** Blink GIF: visit A, then visit B, looping, same stretch for both. */
+  const onSaveGif = async () => {
+    if (!grid || !position || !va || !vb) return;
+    setGifBusy(true);
+    setGifNote(null);
+    try {
+      const frame = (v: typeof va, n: number) => ({
+        props: { grid, data: v.data, stretch, mjd: v.midMjd, label: `Visit ${n}`, stars: sky.stars, showGaia, picked },
+        caption: [
+          `${position.label} · RA ${formatRa(position.ra)} Dec ${formatDec(position.dec)} · ${sky.fov}′`,
+          `Visit ${n} · ${sky.visitRange(v)} · ${v.members.length} image${v.members.length > 1 ? 's' : ''}`,
+          'NASA SPHEREx data via IRSA · SPHEREx Sky Motion',
+        ],
+      });
+      const size = await saveGif([frame(va, a + 1), frame(vb, b + 1)], 700, `${fileStem(position.label)}_visit${a + 1}-${b + 1}`);
+      setGifNote(`Blink GIF saved (${(size / 1024).toFixed(0)} KB).`);
+    } catch (e) {
+      setGifNote(`Could not make the GIF: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setGifBusy(false);
+    }
+  };
 
   const pane = (v: typeof va, label: string) =>
     grid && v ? (
@@ -73,6 +99,7 @@ export function Compare({ sky, onFind }: { sky: Sky; onFind: (text: string, targ
       </div>
 
       <div className="wrap py-6">
+        <FindStatus finding={finding} findError={findError} />
         {position && <div className="mb-4"><LoadStatus sky={sky} /></div>}
         {!position && <div className="ph">Pick a target above. Comparing needs two visits of the same spot, six months apart.</div>}
         {grid && visits.length > 0 && (
@@ -101,6 +128,8 @@ export function Compare({ sky, onFind }: { sky: Sky; onFind: (text: string, targ
                   <label className="lbl" htmlFor="vb">To</label>{select(b, setB, 'vb')}
                 </div>
                 <label className="flex gap-2 mt-3 text-[14px]"><input type="checkbox" checked={showGaia} onChange={(e) => setShowGaia(e.target.checked)} /> Gaia stars at each date</label>
+                <button type="button" className="btn k mt-3" onClick={() => void onSaveGif()} disabled={gifBusy}>{gifBusy ? 'Making GIF…' : 'Save blink GIF'}</button>
+                {gifNote && <p className="mut text-[13px] mt-1" role="status">{gifNote}</p>}
               </div>
               <div>
                 <h2 className="text-[17px] m-0 mb-2">Spectrum</h2>

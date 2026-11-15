@@ -15,7 +15,8 @@ body { margin: 0; font: 15px/1.5 "Helvetica Neue", Helvetica, Arial, "Liberation
 :focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
 button { font: inherit; color: inherit; }
 
-.bar { background: #000; color: #fff; display: flex; align-items: stretch; gap: 28px; padding: 0 32px; min-height: 52px; overflow-x: auto; }
+.bar { background: #000; color: #fff; display: flex; flex-wrap: wrap; align-items: stretch; column-gap: 28px; padding: 0 32px; min-height: 52px; }
+.bar nav { min-height: 52px; }
 .bar .brand, .bar nav button { white-space: nowrap; }
 .bar .brand { font-weight: 700; display: flex; align-items: center; }
 .bar nav { display: flex; gap: 22px; }
