@@ -60,7 +60,7 @@ If we blink between them, you can already see the star jump.
 **[Difference]**
 
 And if we subtract them: **white means brighter now, black means fainter now.** This white-and-black
-pair is the star moving north, about ten arc-seconds in one year. That is exactly the speed astronomers
+pair is the star moving north, about ten arc-seconds in one year. That matches the speed astronomers
 have measured for this star.
 
 **[Point to the circles]**
