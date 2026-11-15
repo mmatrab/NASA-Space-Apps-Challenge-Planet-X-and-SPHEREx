@@ -128,6 +128,14 @@ runs the same checks on every push.
 See [FEATURES.md](FEATURES.md) for what is built and verified, and [docs/decisions.md](docs/decisions.md)
 for open questions. The challenge brief is in [docs/challenge-brief.md](docs/challenge-brief.md).
 
+## Use of AI (Super Intelligence)
+
+Most of the code, tests, scripts, documentation and the demo recording script were written with an AI
+coding assistant (Claude Code, by Anthropic), directed and reviewed by team AstroSeekers. Commits made
+with it carry a `Co-Authored-By: Claude` line. No data, image or number shown by the site is
+AI-generated: everything comes from NASA, ESA and CDS archives. The demo video is a screen recording of
+the real site.
+
 ## Credits
 
 SPHEREx data: NASA / JPL-Caltech / IPAC, served by the NASA/IPAC Infrared Science Archive (IRSA).

@@ -5,7 +5,7 @@ exactly this text, at these times, so you can read along while recording. About 
 
 | Time | Say (and the subtitle shows) |
 | --- | --- |
-| 0:00 | Hi! We are the SPHEREx Sky Motion team. *(or: “Hi! I'm [name], from team [team].” — ask Claude to re-render the subtitle)* |
+| 0:00 | Hi! I'm Mohamed Matrab, team AstroSeekers. |
 | 0:02 | Our challenge: spot what moves in NASA's SPHEREx sky maps. |
 | 0:05 | SPHEREx Sky Motion: watch the infrared sky move. |
 | 0:10 | Pick a target: we play real SPHEREx images, one per six-month visit. |

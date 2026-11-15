@@ -53,7 +53,7 @@ const OUT = process.argv[2] || path.resolve(__dirname, '..', 'docs', 'pitch', 'v
   // Subtitles = the narration (required in English if the speaker uses another language).
   const SPEAKER = process.env.SPEAKER;
   const TEAM = process.env.TEAM;
-  const intro = SPEAKER && TEAM ? `Hi! I'm ${SPEAKER}, from team ${TEAM}.` : TEAM ? `Hi! We're team ${TEAM}.` : 'Hi! We are the SPHEREx Sky Motion team.';
+  const intro = SPEAKER && TEAM ? `Hi! I'm ${SPEAKER}, team ${TEAM}.` : TEAM ? `Hi! We're team ${TEAM}.` : 'Hi! We are the SPHEREx Sky Motion team.';
   const sub = async (text) => { await caption(text); };
 
   // 0:00 Who we are + 0:02 the challenge + 0:05 the project
