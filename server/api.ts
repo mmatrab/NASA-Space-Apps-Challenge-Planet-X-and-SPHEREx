@@ -216,6 +216,8 @@ async function listImagesSia(ra: number, dec: number, timeoutMs = 60_000): Promi
 }
 
 const cutoutCache = new Map<string, Buffer>();
+/** Image lists answered in the last 10 minutes, so reopening a target does not wait on IRSA again. */
+const listCache = new Map<string, { at: number; body: unknown }>();
 const CACHE_MAX = 600;
 
 /** Cutouts are also kept on disk (data/cache, not committed): a target viewed once reloads instantly. */
@@ -316,6 +318,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, next?
       case '/api/images': {
         const ra = num(q.get('ra'), 'ra', 0, 360);
         const dec = num(q.get('dec'), 'dec', -90, 90);
+        const listKey = `${ra.toFixed(5)},${dec.toFixed(5)}`;
+        const recent = listCache.get(listKey);
+        if (recent && Date.now() - recent.at < 10 * 60_000) return send(res, 200, recent.body);
         // TAP and SIA2 are asked at the same time; the first good answer wins. For targets in our
         // offline index, IRSA gets 10 s before the index is used (it sometimes hangs instead of failing).
         const index = await loadIndex();
@@ -338,7 +343,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, next?
           via = `our index of ${hit.name}, built ${index!.generatedAtUtc.slice(0, 10)} from NASA's SPHEREx bucket on AWS (IRSA search unavailable)`;
         }
         const images = dedupeImages(records.filter((r) => isAllowedImagePath(r.path)));
-        return send(res, 200, { via, count: images.length, images, retrievedAtUtc: new Date().toISOString() });
+        const body = { via, count: images.length, images, retrievedAtUtc: new Date().toISOString() };
+        listCache.set(listKey, { at: Date.now(), body });
+        return send(res, 200, body);
       }
 
       case '/api/cutout': {

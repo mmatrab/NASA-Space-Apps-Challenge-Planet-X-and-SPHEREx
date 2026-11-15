@@ -61,7 +61,7 @@ testing and recording the demo. 31 automated tests run on a real SPHEREx file.
 
 ## Use of Super Intelligence (SI)
 
-[Adjust to what your team did.] We used an AI coding assistant (Claude Code, by Anthropic) under our
+Team AstroSeekers used an AI coding assistant (Claude Code, by Anthropic) under our
 direction. It wrote and tested most of the code, read the official SPHEREx documentation to match the
 real file format, built the target index script, produced design mock-ups we chose from, and recorded
 the demo video from the running site. We made the product and design decisions and reviewed the
