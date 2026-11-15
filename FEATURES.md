@@ -101,25 +101,29 @@ Three questions about the selected planet, each with one picture and one sentenc
 
 #### 4. Radius against orbital period: "Where are the Earth-sized planets, and how close are they to their stars?"
 
-- Scatter plot with both axes logarithmic, points coloured by method, Earth marked as a reference, the
-  1.5–2 Earth-radii region shaded as a gap researchers are still studying (no cause stated).
-- Planets with a missing, non-positive or limit-flagged value are left out, and the number left out is
-  shown. A paginated table gives every plotted planet.
-- **In progress:** measured and archive-derived radii are not yet told apart on this chart. Fix under
-  way: measured radii only by default, derived ones on request as hollow points, with the excluded count
-  broken down by reason.
+- Scatter plot with both axes logarithmic, Earth marked as a reference, the 1.5–2 Earth-radii region
+  shaded as one with fewer planets that researchers are still studying (no cause stated).
+- **Measured radii only by default (4,843 planets).** Radii the archive calculated instead of measuring
+  can be added as hollow marks (6,060 planets). The first version mixed 1,217 calculated radii in as if
+  measured; the star-wobble ones form an artificial flat line near 13 Earth radii.
+- The number of planets left out is shown, by reason: no period, no radius, limit only, estimated radius.
+- Colour-blind-safe groups (Transit, star wobble, other methods; squares for "other").
+- Hover shows name, host star, method, radius and period. Alphabetical table with every plotted planet
+  (no ranking).
 
 ## How it was verified
 
-- `npm run typecheck`, `npm test` (95 tests passing on 15 November 2026), `npm run build` before each
+- `npm run typecheck`, `npm test` (96 tests passing on 15 November 2026), `npm run build` before each
   push; CI runs the same plus an offline smoke test.
 - Tests cover unit conversion (parsecs to light-years, period to Earth years), binning by year and method,
   axis rounding, logarithmic-plot filtering, and the committed snapshot itself (source, size, totals,
   milestones).
 - Live NASA Exoplanet Archive queries were run from the development environment on 15 November 2026.
+- Real-browser checks (Chromium): guided path, timeline hover and table, scatter hover and toggle,
+  phone width.
 - **Not verified from the development environment:** sky images (CDS and ESA image servers were blocked
   by its network) and the external milestone web pages (only the archive's own references were
-  reachable).
+  reachable). No committed end-to-end browser test yet.
 
 ## For AI agents: where to look
 
@@ -131,9 +135,10 @@ Three questions about the selected planet, each with one picture and one sentenc
 | Snapshot decoding, binning, log filter, milestones, unit conversion | `src/stories/planetSnapshot.ts` |
 | Guided path | `src/components/FindAWorld.tsx` |
 | Timeline | `src/components/DiscoveryTimeline.tsx` |
-| Radius–period chart | `src/components/StoryCharts.tsx` |
+| Radius–period chart | `src/components/RadiusPeriodChart.tsx` |
+| What changed and what is open | `docs/product/storytelling-implementation.md` |
 | Sky viewer and PNG export | `src/components/SkyViewerPanel.tsx` |
 | Product rules and brief | `docs/product/storytelling-enthusiast-path.md` |
 
 Commits on `mmatrab/orbit-os` main for this work: `cf85e05` (snapshot), `c01ad8e` (guided path),
-`a2f1753` (timeline). Search the log for "Part 1", "Part 2", "Snapshot" to find them.
+`a2f1753` (timeline), `a2c985a` (radius–period chart), `4431226` (docs). Search the log for "Part 1", "Part 2", "Snapshot" to find them.
