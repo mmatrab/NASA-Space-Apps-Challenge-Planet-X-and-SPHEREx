@@ -50,54 +50,51 @@ const OUT = process.argv[2] || path.resolve(__dirname, '..', 'docs', 'pitch', 'v
   const click = async (locator) => { await moveTo(locator); await page.waitForTimeout(250); await locator.click(); };
   const loaded = () => page.waitForFunction(() => /(\d+) \/ \1 images loaded/i.test(document.body.innerText), null, { timeout: 300000 });
 
-  // Subtitles = the narration (required in English if the speaker uses another language).
+  // Subtitles = the narration (English is required when the speaker uses another language).
   const SPEAKER = process.env.SPEAKER;
   const TEAM = process.env.TEAM;
-  const intro = SPEAKER && TEAM ? `Hi! I'm ${SPEAKER}, team ${TEAM}.` : TEAM ? `Hi! We're team ${TEAM}.` : 'Hi! We are the SPHEREx Sky Motion team.';
-  const sub = async (text) => { await caption(text); };
+  const intro = SPEAKER && TEAM ? `Hi, I'm ${SPEAKER}, from team ${TEAM}.` : 'Hi, we are the SPHEREx Sky Motion team.';
+  const sub = (text) => caption(text);
 
-  // 0:00 Who we are + 0:02 the challenge + 0:05 the project
+  // 0:00 Who we are, 0:04 what we built (title card, then the real site)
   await page.goto(`${CARDS}/title30.html`);
   await sub(intro);
-  await until(2);
-  await sub("Our challenge: spot what moves in NASA's SPHEREx sky maps.");
-  await until(5);
-
-  // 0:05 Project name and tagline, on the real site
+  await until(4);
+  await sub("For NASA's SPHEREx challenge, we built SPHEREx Sky Motion.");
+  await until(7);
   await page.goto(APP);
   await page.waitForSelector('.card');
-  await sub('SPHEREx Sky Motion: watch the infrared sky move.');
+  await sub("For NASA's SPHEREx challenge, we built SPHEREx Sky Motion.");
   await click(page.getByRole('button', { name: /^Barnard's Star/ }));
   await loaded();
   await page.locator('canvas').first().evaluate((e) => e.scrollIntoView({ block: 'center' }));
   await until(10);
 
-  // 0:10 How it works, with NASA data
-  await sub('Pick a target: we play real SPHEREx images, one per six-month visit.');
+  // 0:10 How it works
+  await sub('Pick a star, and the site plays every SPHEREx photo of it, six months apart.');
   await moveTo(page.locator('canvas').first());
-  await until(14);
+  await until(16);
   await page.evaluate(() => window.scrollTo({ top: 0 }));
   await page.getByRole('button', { name: 'Compare', exact: true }).click();
   await page.getByRole('button', { name: 'Difference', exact: true }).click();
-  await sub("Subtract two visits: Barnard's Star moved north in one year.");
+  await sub("Subtract two photos: Barnard's Star has moved north in one year.");
   await moveTo(page.locator('canvas').first());
-  await until(18);
+  await until(21);
   await page.getByRole('button', { name: 'Explore', exact: true }).click();
-  // Barnard's Star is still loaded; its saturated core is flagged, so pick a pixel in its halo.
   const cv = page.locator('canvas').first();
   await cv.evaluate((e) => e.scrollIntoView({ block: 'center' }));
   const bb = await cv.boundingBox();
   const px = bb.width / 29;
-  await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2 - 2.5 * px, { steps: 12 });
+  await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2 - 2.5 * px, { steps: 10 });
   await page.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2 - 2.5 * px);
   await page.locator('section[aria-labelledby="s3"]').evaluate((e) => e.scrollIntoView({ block: 'start' }));
-  await sub('Click a star for its spectrum, built from NASA data on the fly.');
+  await sub('Click a star to see its spectrum.');
   await moveTo(page.locator('section[aria-labelledby="s3"] svg[role=img]').first());
-  await until(22);
+  await until(25);
 
-  // 0:22 The future
+  // 0:25 The future
   await page.goto(`${CARDS}/future30.html`);
-  await sub('Next: anyone can hunt new brown dwarfs and asteroids, and every SPHEREx release adds frames.');
+  await sub('Now anyone can look for moving objects in NASA data.');
   await until(30);
 
   const video = page.video();
