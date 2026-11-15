@@ -12,6 +12,8 @@ backup.
 **[0:00–0:40 — THE PROBLEM]**
 
 Hi, I'm Mohamed Matrab, from team AstroSeekers. We chose the **“Planet X and SPHEREx”** challenge.
+I'm an astronomy enthusiast, and I love the idea that anyone, by looking carefully, can still find
+something new in the sky.
 
 Almost a hundred years ago, Pluto was found by comparing two photos of the sky taken at different
 times, and noticing one dot that had moved.
