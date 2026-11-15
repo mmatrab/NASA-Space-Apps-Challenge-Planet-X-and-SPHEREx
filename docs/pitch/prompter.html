@@ -35,6 +35,8 @@ main { flex: 1; min-height: 0; overflow-y: auto; padding-block: 18px; display: f
 .read { font-size: var(--size, 30px); line-height: 1.38; margin: 0; max-width: 34ch; text-wrap: pretty; }
 .read p { margin: 0 0 .55em; }
 .read strong { color: #ffd9a8; font-weight: 700; }
+.stuck { font-size: 15px; color: var(--late); border-left: 3px solid var(--late); padding: 2px 0 2px 10px; }
+.back { align-self: flex-start; }
 .next { margin-top: auto; font-size: 15px; color: var(--dim); border-top: 1px dashed var(--rule); padding-top: 10px; }
 .next b { font-family: var(--font-ui); font-weight: 400; color: var(--cue); }
 button { font: inherit; color: var(--ink); background: #1b1f25; border: 1px solid var(--rule); border-radius: 6px; padding: 10px 14px; min-height: 44px; cursor: pointer; }
@@ -57,7 +59,7 @@ button.go { background: var(--cue); color: #120806; border-color: var(--cue); fo
 
 <header>
   <span class="part" id="part">SPHEREx</span>
-  <span class="count" id="count">1 / 30</span>
+  <span class="count" id="count"></span>
   <span class="clock" id="clock">0:00</span>
   <span class="delta" id="delta">planned 0:00</span>
 </header>
@@ -65,6 +67,7 @@ button.go { background: var(--cue); color: #120806; border-color: var(--cue); fo
 <main id="card" aria-live="polite">
   <div class="meta"><span class="section" id="section"></span><span id="planned"></span></div>
   <div class="cue" id="cue" hidden></div>
+  <div class="stuck" id="stuck" hidden></div>
   <div class="read" id="read"></div>
   <div class="next" id="next"></div>
 </main>
@@ -79,12 +82,13 @@ button.go { background: var(--cue); color: #120806; border-color: var(--cue); fo
   <span class="grow"></span>
   <button id="smaller" aria-label="Smaller text">A−</button>
   <button id="bigger" aria-label="Bigger text">A+</button>
+  <button id="sos">SOS</button>
   <button id="all">Cards</button>
 </footer>
 
 <div id="list" hidden>
   <div style="display:flex;align-items:center;gap:10px">
-    <strong style="font-size:18px">All cards</strong><span class="grow"></span>
+    <strong style="font-size:18px">All cards · SOS · Q&amp;A</strong><span class="grow"></span>
     <button id="reset">Reset timer</button><button id="close">Close</button>
   </div>
   <ol id="items"></ol>
@@ -92,6 +96,8 @@ button.go { background: var(--cue); color: #120806; border-color: var(--cue); fo
 
 <script>
 // t = planned start in seconds from the beginning of the whole talk (SPHEREx 5:00, then Space Explorer 2:00).
+const PREP = { part: 'Avant de commencer', t: null, section: 'Checklist (à faire avant de monter)', text: "1. Lance le site : npm run dev, puis ouvre http://localhost:5173|2. Ouvre une fois Barnard's Star, RW Aurigae et R Draconis (les images se mettent en cache), puis reviens à l'accueil.|3. Ouvre Space Explorer (orbit-os) dans un autre onglet, sur TRAPPIST-1 e.|4. Garde la vidéo de 30 s prête dans un 3e onglet, en secours.|5. Téléphone : mode avion OFF, veille désactivée, luminosité haute.|6. Respire. Touche Start au moment où tu dis « Hi »." };
+
 const CARDS = [
   { part: 'SPHEREx', t: 0, section: 'The problem', text: "Hi, I'm Mohamed Matrab, from team AstroSeekers. We chose the **“Planet X and SPHEREx”** challenge." },
   { part: 'SPHEREx', t: 8, section: 'The problem', text: 'Almost a hundred years ago, Pluto was found by comparing two photos of the sky taken at different times, and noticing one dot that had moved.' },
@@ -100,13 +106,13 @@ const CARDS = [
   { part: 'SPHEREx', t: 42, section: 'Our solution', text: 'So we built **SPHEREx Sky Motion**: a website where anyone can watch the infrared sky change.|You choose a spot in the sky. The site finds every SPHEREx image of that spot, lines them up, and plays them like a short video.' },
   { part: 'SPHEREx', t: 58, section: 'Our solution', text: "And just like our other projects: **we never invent data. Every pixel comes from NASA's archive, with its source.**" },
   { part: 'SPHEREx', t: 70, section: 'Live demo', cue: 'Home page', text: "Let me show you.|The page follows three steps: choose a target, play the visits, inspect a pixel. If you don't know where to look, we suggest five targets, the ones named in the challenge, with what to look for." },
-  { part: 'SPHEREx', t: 90, section: 'Live demo', cue: "Click Barnard's Star", text: "Let's take Barnard's Star, the star that crosses our sky the fastest.|The site has found 325 SPHEREx images of it. Here they are, one frame per visit, about six months apart, from August 2025 to August 2026. North is up, and every frame shows its date." },
-  { part: 'SPHEREx', t: 115, section: 'Live demo', cue: 'Compare tab → Side by side', text: 'In the Compare tab, we put August 2025 next to August 2026.' },
+  { part: 'SPHEREx', t: 90, section: 'Live demo', cue: "Click Barnard's Star", stuck: "If it is still loading, say: “The images are downloading from NASA's servers right now.” Then keep reading.", text: "Let's take Barnard's Star, the star that crosses our sky the fastest.|The site has found 325 SPHEREx images of it. Here they are, one frame per visit, about six months apart, from August 2025 to August 2026. North is up, and every frame shows its date." },
+  { part: 'SPHEREx', t: 115, section: 'Live demo', cue: 'Compare tab → Side by side', stuck: "If the two images look the same, it is fine: the change is small. Go on to Blink.", text: 'In the Compare tab, we put August 2025 next to August 2026.' },
   { part: 'SPHEREx', t: 122, section: 'Live demo', cue: 'Blink', text: 'If we blink between them, you can already see the star jump.' },
   { part: 'SPHEREx', t: 130, section: 'Live demo', cue: 'Difference', text: 'And if we subtract them: **white means brighter now, black means fainter now.**|This white-and-black pair is the star moving north, about ten arc-seconds in one year. That matches the speed astronomers have measured for this star.' },
   { part: 'SPHEREx', t: 150, section: 'Live demo', cue: 'Point to the circles', text: "These circles are stars from ESA's Gaia catalogue, drawn where Gaia predicts them on each date. The gold one is Barnard's Star, and it follows the moving star." },
   { part: 'SPHEREx', t: 165, section: 'Live demo', cue: 'Explore → click next to the star → spectrum', text: 'SPHEREx has another trick: each image sees a spot at a different colour. So when you click a star, we collect all those measurements and build its **spectrum, on the fly.**|Each colour of dot is a different visit. If the visits disagree, the star has changed.' },
-  { part: 'SPHEREx', t: 190, section: 'Live demo', cue: 'Click R Draconis', text: 'R Draconis is a star that pulses. It sits near the pole of the sky, where SPHEREx looks almost every month, so here we get thirteen visits instead of three. You can follow it month by month.' },
+  { part: 'SPHEREx', t: 190, section: 'Live demo', cue: 'Click R Draconis', stuck: "If it loads slowly, say: “This star has more than two thousand images, so it takes a few seconds.”", text: 'R Draconis is a star that pulses. It sits near the pole of the sky, where SPHEREx looks almost every month, so here we get thirteen visits instead of three. You can follow it month by month.' },
   { part: 'SPHEREx', t: 205, section: 'Live demo', cue: 'Save GIF → About the data', text: 'Finally, you can save an image or an animated GIF, and share a link that reopens the same view. And this page explains where every number comes from.' },
   { part: 'SPHEREx', t: 220, section: 'How we made it reliable', text: "A short behind-the-scenes story. During the whole hackathon, **NASA's SPHEREx search service was down.** We could not ask which images contain a star." },
   { part: 'SPHEREx', t: 238, section: 'How we made it reliable', text: "So we went to the source: NASA's public SPHEREx archive on Amazon's cloud. We read the headers of the files and checked, with each image's own coordinates, whether our five targets were inside. We found more than **3,300 real images.**" },
@@ -117,7 +123,7 @@ const CARDS = [
   { part: 'Space Explorer', t: 300, section: 'The problem', text: 'Now, let me introduce another module of our platform, ORBIT OS: **Space Explorer**.|NASA has discovered thousands of exoplanets — planets outside our Solar System.' },
   { part: 'Space Explorer', t: 312, section: 'The problem', text: "But there's a problem: although NASA makes this data public, it's often difficult for ordinary people to understand.|You see scientific tables, complex numbers, and unfamiliar terminology.|**We wanted to make space exploration accessible to everyone.**" },
   { part: 'Space Explorer', t: 325, section: 'Our solution', text: "So we built **Space Explorer**, an interactive application powered by real data from the NASA Exoplanet Archive.|Instead of just reading scientific numbers, users can discover planets, understand their characteristics, and explore their locations in the sky.|And importantly, **we don't invent scientific information. Every value comes from real research.**" },
-  { part: 'Space Explorer', t: 345, section: 'Live demo', cue: 'Click TRAPPIST-1 e', text: "Let me show you how it works.|First, users can search for a planet or simply browse NASA's catalogue. You don't need to know any planet names.|Let's explore **TRAPPIST-1 e**." },
+  { part: 'Space Explorer', t: 345, section: 'Live demo', cue: 'Click TRAPPIST-1 e', stuck: "If the sky image stays grey, say: “The image servers are slow here, so let me show the numbers instead.” Then point to the measurements.", text: "Let me show you how it works.|First, users can search for a planet or simply browse NASA's catalogue. You don't need to know any planet names.|Let's explore **TRAPPIST-1 e**." },
   { part: 'Space Explorer', t: 360, section: 'Live demo', cue: 'Show Find a World', text: 'Here, we answer three simple questions: How big is this planet? How far away is it? And how long is its year?' },
   { part: 'Space Explorer', t: 372, section: 'Live demo', cue: 'Scroll to Sky Viewer', text: "Next, we can explore real telescope images around its host star. Our guided tour even explains the different types of images.|The circle identifies the star's position — not a photograph of the planet itself." },
   { part: 'Space Explorer', t: 385, section: 'Live demo', cue: 'Point to scientific measurements', text: 'And here, we can see its radius, mass, orbital period, and the scientific sources behind those measurements.|Users can also explore a 3D visualization, save notes, and export scientific data.' },
@@ -125,6 +131,28 @@ const CARDS = [
   { part: 'Space Explorer', t: 410, section: 'Conclusion', text: 'While our SPHEREx solution focuses on changes in the sky, Space Explorer focuses on worlds already discovered.|Together, they demonstrate our bigger vision for ORBIT OS: **making space science accessible to everyone.**|Thank you!' },
 ];
 const END = 420;
+
+// SOS lines and prepared answers. Shown from the SOS button; "Back to talk" returns to the card you were on.
+const EXTRA = [
+  { kind: 'SOS', section: 'Trou de mémoire', text: "Look at the screen and say: **“Let me show you on the site.”**|Then do the orange action of the current card and read the next card." },
+  { kind: 'SOS', section: 'Le site ne s’ouvre pas', text: "Say: **“Our live server is having a problem, so here is our 30-second demo video, recorded from the real site.”**|Play the video, then continue with the next card." },
+  { kind: 'SOS', section: 'Images très lentes', text: "Say: **“These are real files coming from NASA's archive right now, so it can take a few seconds.”**|Continue reading; the images will appear." },
+  { kind: 'SOS', section: 'Pas d’internet', text: "Say: **“We have no internet here, so here is our demo video, recorded from the real site.”**|Play the 30-second video." },
+  { kind: 'SOS', section: 'Question pas comprise', text: "**“Sorry, could you repeat the question, please?”**|If still unclear: **“I'm not sure I understood. Can I show you on the site?”**" },
+  { kind: 'SOS', section: 'Question sans réponse', text: "**“Good question. We have not tested that yet, but the data is public, so it is a clear next step for us.”**" },
+  { kind: 'Q&A', section: 'Is the data real? Is it AI-generated?', text: "**Yes, it is real.** Every image comes from NASA's SPHEREx archive at IRSA. No image or number is generated by AI.|We used an AI coding assistant to help write the code, and we say so in our project." },
+  { kind: 'Q&A', section: 'How is it different from WiseView?', text: "WiseView inspired us: it lets people blink WISE images to find moving objects.|We do the same idea for **SPHEREx**, the new mission, and we add something SPHEREx makes possible: a **spectrum for every pixel**, from its 102 colours." },
+  { kind: 'Q&A', section: 'Why did you build your own index?', text: "During the hackathon, NASA's SPHEREx search service answered with an error the whole time.|So we read the files directly from NASA's public archive on Amazon's cloud, and kept only images that really contain each target. When the search is back, the site uses it automatically." },
+  { kind: 'Q&A', section: 'How accurate are the positions?', text: "Each image is placed with its own sky coordinates from the file. On a real SPHEREx file, our position calculation agrees to **better than one hundredth of an arc-second.**|A SPHEREx pixel is about 6 arc-seconds, so Barnard's Star moves almost two pixels in a year." },
+  { kind: 'Q&A', section: 'How does the spectrum work?', text: "SPHEREx has special filters: the colour it sees changes across the detector. As the telescope points again and again, the same star lands on different colours.|Each file tells us the colour of every pixel, so we put all the measurements together into a spectrum." },
+  { kind: 'Q&A', section: 'Can it discover new objects?', text: "It helps people **look**. It does not claim discoveries by itself.|Our next step is to let volunteers flag objects that move, so experts can check them." },
+  { kind: 'Q&A', section: 'Does it work for any star?', text: "Yes: you can type any name or any coordinates. The site then asks NASA's archive for the images.|While the search service was down, we prepared the five challenge targets ourselves." },
+  { kind: 'Q&A', section: 'Why is it slow the first time?', text: "NASA's server cuts a small piece out of each image for us, about three seconds per image. After the first time, the images are cached and it opens in seconds." },
+  { kind: 'Q&A', section: 'What technologies did you use?', text: "TypeScript and React for the website, a small Node.js server, and only open data. We read the astronomy files, called FITS, directly in the browser." },
+  { kind: 'Q&A', section: 'What was the hardest part?', text: "Two things: the archive search being down, and understanding the SPHEREx file format, for example the colour of each pixel. We followed NASA's official documentation." },
+  { kind: 'Q&A', section: 'Where does Space Explorer get its data?', text: "From the **NASA Exoplanet Archive**. Each value keeps its scientific reference, and we show when a value is estimated rather than measured." },
+  { kind: 'Q&A', section: 'What would you do with more time?', text: "Let volunteers flag moving objects, add older WISE images to see motion over many years, and connect SPHEREx Sky Motion and Space Explorer inside our platform, ORBIT OS." },
+];
 
 const $ = (id) => document.getElementById(id);
 const fmt = (s) => { const a = Math.abs(Math.round(s)); return `${Math.floor(a / 60)}:${String(a % 60).padStart(2, '0')}`; };
@@ -137,7 +165,7 @@ let startedAt = null;
 let pausedTotal = 0;
 let pausedAt = null;
 let size = 30;
-try { size = Number(localStorage.getItem('prompter-size')) || 30; i = Math.min(CARDS.length - 1, Number(localStorage.getItem('prompter-card')) || 0); } catch {}
+try { size = Number(localStorage.getItem('prompter-size')) || 30; } catch {}
 
 function elapsed() {
   if (!startedAt) return 0;
@@ -145,26 +173,48 @@ function elapsed() {
   return (now - startedAt - pausedTotal) / 1000;
 }
 
-function render() {
-  const c = CARDS[i];
+// view: { mode: 'prep' } | { mode: 'talk', i } | { mode: 'extra', k }
+let view = { mode: 'prep' };
+let lastTalk = 0;
+
+function show(c, label) {
   document.documentElement.style.setProperty('--size', size + 'px');
-  $('part').textContent = c.part;
-  $('count').textContent = `${i + 1} / ${CARDS.length}`;
+  $('part').textContent = c.part ?? c.kind;
+  $('count').textContent = label;
   $('section').textContent = c.section;
-  $('planned').textContent = `at ${fmt(c.t)}`;
+  $('planned').textContent = c.t !== null && c.t !== undefined ? `at ${fmt(c.t)}` : '';
   $('cue').hidden = !c.cue;
   $('cue').textContent = c.cue ? `▶ ${c.cue}` : '';
+  $('stuck').hidden = !c.stuck;
+  $('stuck').textContent = c.stuck ? `⚠ ${c.stuck}` : '';
   $('read').innerHTML = html(c.text);
-  const n = CARDS[i + 1];
-  $('next').innerHTML = n ? `<b>Next${n.cue ? ' · ' + esc(n.cue) : ''}</b> — ${esc(plain(n.text)).slice(0, 90)}…` : '<b>End</b> — Thank you!';
   $('card').scrollTop = 0;
-  try { localStorage.setItem('prompter-card', String(i)); } catch {}
+}
+
+function render() {
+  if (view.mode === 'prep') {
+    show(PREP, 'prep');
+    $('next').innerHTML = `<b>Then</b> — touch Start, then the right side of the screen for card 1.`;
+  } else if (view.mode === 'extra') {
+    const c = EXTRA[view.k];
+    show(c, c.kind);
+    $('next').innerHTML = `<b>Tap anywhere</b> — back to talk card ${lastTalk + 1}.`;
+  } else {
+    i = view.i;
+    lastTalk = i;
+    const c = CARDS[i];
+    show(c, `${i + 1} / ${CARDS.length}`);
+    const n = CARDS[i + 1];
+    $('next').innerHTML = n ? `<b>Next${n.cue ? ' · ' + esc(n.cue) : ''}</b> — ${esc(plain(n.text)).slice(0, 90)}…` : '<b>End</b> — Thank you! (SOS → Q&A for questions)';
+    try { localStorage.setItem('prompter-card', String(i)); } catch {}
+  }
   tick();
 }
 
 function tick() {
   const e = elapsed();
   $('clock').textContent = fmt(e);
+  if (view.mode !== 'talk') { $('delta').textContent = startedAt ? '' : `total ${fmt(END)}`; $('delta').className = 'delta'; return; }
   if (!startedAt) { $('delta').textContent = `total ${fmt(END)}`; $('delta').className = 'delta'; return; }
   const d = e - CARDS[i].t;
   const late = d > 8;
@@ -172,12 +222,18 @@ function tick() {
   $('delta').className = 'delta ' + (late ? 'late' : 'ok');
 }
 
-function go(step) { i = Math.max(0, Math.min(CARDS.length - 1, i + step)); render(); }
+function go(step) {
+  if (view.mode === 'extra') { view = { mode: 'talk', i: lastTalk }; return render(); }
+  if (view.mode === 'prep') { if (step > 0) view = { mode: 'talk', i: 0 }; return render(); }
+  const n = view.i + step;
+  view = n < 0 ? { mode: 'prep' } : { mode: 'talk', i: Math.min(CARDS.length - 1, n) };
+  render();
+}
 
 async function keepAwake() { try { await navigator.wakeLock?.request('screen'); } catch {} }
 
 $('start').addEventListener('click', () => {
-  if (!startedAt) { startedAt = Date.now(); keepAwake(); $('start').textContent = 'Pause'; }
+  if (!startedAt) { startedAt = Date.now(); keepAwake(); $('start').textContent = 'Pause'; if (view.mode === 'prep') view = { mode: 'talk', i: 0 }; render(); }
   else if (pausedAt) { pausedTotal += Date.now() - pausedAt; pausedAt = null; $('start').textContent = 'Pause'; keepAwake(); }
   else { pausedAt = Date.now(); $('start').textContent = 'Resume'; }
   tick();
@@ -188,13 +244,26 @@ $('tapPrev').addEventListener('click', () => go(-1));
 $('tapNext').addEventListener('click', () => go(1));
 $('bigger').addEventListener('click', () => { size = Math.min(56, size + 2); try { localStorage.setItem('prompter-size', size); } catch {} render(); });
 $('smaller').addEventListener('click', () => { size = Math.max(18, size - 2); try { localStorage.setItem('prompter-size', size); } catch {} render(); });
-$('all').addEventListener('click', () => {
-  $('items').innerHTML = CARDS.map((c, k) => `<li><button data-k="${k}" aria-current="${k === i}"><span>${fmt(c.t)}</span><span>${c.part === 'Space Explorer' ? '◆ ' : ''}${esc(c.cue ? '▶ ' + c.cue : c.section)} — ${esc(plain(c.text)).slice(0, 60)}…</span></button></li>`).join('');
+function openList(focusExtra) {
+  const talk = CARDS.map((c, k) => `<li><button data-t="${k}" aria-current="${view.mode === 'talk' && k === view.i}"><span>${fmt(c.t)}</span><span>${c.part === 'Space Explorer' ? '◆ ' : ''}${esc(c.cue ? '▶ ' + c.cue : c.section)} — ${esc(plain(c.text)).slice(0, 60)}…</span></button></li>`).join('');
+  const extra = EXTRA.map((c, k) => `<li${k === 0 ? ' id="extraStart"' : ''}><button data-x="${k}"><span>${c.kind}</span><span>${esc(c.section)}</span></button></li>`).join('');
+  $('items').innerHTML = `<li><button data-p="1"><span>prep</span><span>Avant de commencer — checklist</span></button></li>${talk}<li style="margin-top:14px;color:var(--cue);font-family:var(--font-ui)">SOS and jury questions</li>${extra}`;
   $('list').hidden = false;
+  if (focusExtra) $('extraStart').scrollIntoView({ block: 'start' });
+}
+$('all').addEventListener('click', () => openList(false));
+$('sos').addEventListener('click', () => openList(true));
+$('items').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.t !== undefined) view = { mode: 'talk', i: Number(b.dataset.t) };
+  else if (b.dataset.x !== undefined) view = { mode: 'extra', k: Number(b.dataset.x) };
+  else view = { mode: 'prep' };
+  $('list').hidden = true;
+  render();
 });
-$('items').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { i = Number(b.dataset.k); $('list').hidden = true; render(); } });
 $('close').addEventListener('click', () => { $('list').hidden = true; });
-$('reset').addEventListener('click', () => { startedAt = null; pausedAt = null; pausedTotal = 0; i = 0; $('start').textContent = 'Start'; $('list').hidden = true; render(); });
+$('reset').addEventListener('click', () => { startedAt = null; pausedAt = null; pausedTotal = 0; view = { mode: 'prep' }; $('start').textContent = 'Start'; $('list').hidden = true; render(); });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(1); }
   if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(-1); }
