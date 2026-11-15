@@ -42,7 +42,9 @@ export function drawSky(ctx: CanvasRenderingContext2D, p: SkyCanvasProps): void 
   };
   if (p.showGaia && p.stars) {
     const year = mjdToJulianYear(p.mjd);
+    // Only stars brighter than G = 16, so the overlay marks what SPHEREx clearly shows without hiding it.
     for (const s of p.stars) {
+      if (s.g !== null && s.g > 16) continue;
       const moving = s.pmra !== null && s.pmdec !== null;
       const pos = moving ? propagate(s.ra, s.dec, s.pmra!, s.pmdec!, s.refEpoch, year) : s;
       const [x, y] = at(pos.ra, pos.dec);

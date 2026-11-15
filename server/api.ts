@@ -10,7 +10,7 @@
  *   GET /api/gaia?ra=&dec=&radius=      Gaia DR3 stars with proper motions (ESA Gaia archive)
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { hduRanges } from '../src/lib/fits.ts';
@@ -184,14 +184,14 @@ const num = (v: string | null, name: string, lo: number, hi: number): number => 
 };
 class BadRequest extends Error {}
 
-async function listImagesTap(ra: number, dec: number): Promise<ImageRecord[]> {
+async function listImagesTap(ra: number, dec: number, timeoutMs = 60_000): Promise<ImageRecord[]> {
   // Query from IRSA's SPHEREx cutouts tutorial (spherex.artifact JOIN spherex.plane); covers DR1 and QR3.
   const query = `SELECT a.uri, p.time_bounds_lower, p.energy_bandpassname
 FROM spherex.artifact a JOIN spherex.plane p ON a.planeid = p.planeid
 WHERE 1 = CONTAINS(POINT('ICRS', ${ra}, ${dec}), p.poly)
 ORDER BY p.time_bounds_lower`;
   const body = new URLSearchParams({ REQUEST: 'doQuery', LANG: 'ADQL', FORMAT: 'csv', QUERY: query });
-  const res = await get(IRSA_TAP, 'IRSA TAP', 90_000, { method: 'POST', body });
+  const res = await get(IRSA_TAP, 'IRSA TAP', timeoutMs, { method: 'POST', body });
   return parseCsv(await res.text())
     .filter((r) => r.uri)
     .map((r) => {
@@ -200,11 +200,11 @@ ORDER BY p.time_bounds_lower`;
     });
 }
 
-async function listImagesSia(ra: number, dec: number): Promise<ImageRecord[]> {
+async function listImagesSia(ra: number, dec: number, timeoutMs = 60_000): Promise<ImageRecord[]> {
   const out: ImageRecord[] = [];
   for (const collection of ['spherex_dr1', 'spherex_qr3']) {
     const url = `${IRSA_SIA}?COLLECTION=${collection}&POS=CIRCLE+${ra}+${dec}+0.0003&RESPONSEFORMAT=VOTABLE`;
-    const res = await get(url, 'IRSA SIA2', 90_000);
+    const res = await get(url, 'IRSA SIA2', timeoutMs);
     for (const r of parseVoTable(await res.text())) {
       const access = r.access_url ?? '';
       const path = access.replace(/^https?:\/\/irsa\.ipac\.caltech\.edu\//, '').split('?')[0];
@@ -258,12 +258,17 @@ interface IndexFile {
   }>;
 }
 
-let indexCache: Promise<IndexFile | null> | null = null;
-function loadIndex(): Promise<IndexFile | null> {
-  indexCache ??= readFile(path.resolve(process.cwd(), 'data', 'index', 'spherex-test-targets.json'), 'utf8')
-    .then((t) => JSON.parse(t) as IndexFile)
-    .catch(() => null);
-  return indexCache;
+let indexCache: { mtimeMs: number; data: IndexFile | null } | null = null;
+/** Reads the index, again whenever the file changes (a rebuild does not need a server restart). */
+async function loadIndex(): Promise<IndexFile | null> {
+  const file = path.resolve(process.cwd(), 'data', 'index', 'spherex-test-targets.json');
+  const st = await stat(file).catch(() => null);
+  if (!st) return null;
+  if (indexCache?.mtimeMs !== st.mtimeMs) {
+    const data = await readFile(file, 'utf8').then((t) => JSON.parse(t) as IndexFile).catch(() => null);
+    indexCache = { mtimeMs: st.mtimeMs, data };
+  }
+  return indexCache.data;
 }
 
 const sepDeg = (ra1: number, d1: number, ra2: number, d2: number) => {
@@ -311,21 +316,23 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, next?
       case '/api/images': {
         const ra = num(q.get('ra'), 'ra', 0, 360);
         const dec = num(q.get('dec'), 'dec', -90, 90);
-        const errors: string[] = [];
+        // TAP and SIA2 are asked at the same time; the first good answer wins. For targets in our
+        // offline index, IRSA gets 10 s before the index is used (it sometimes hangs instead of failing).
+        const index = await loadIndex();
+        const hit = index ? fromIndex(index, ra, dec) : null;
+        const budget = hit ? 10_000 : 60_000;
         let records: ImageRecord[] | null = null;
         let via = '';
-        for (const [name, fn] of [['IRSA TAP', listImagesTap], ['IRSA SIA2', listImagesSia]] as const) {
-          try {
-            records = await fn(ra, dec);
-            via = name;
-            break;
-          } catch (err) {
-            errors.push(err instanceof Error ? err.message : String(err));
-          }
+        const errors: string[] = [];
+        try {
+          [records, via] = await Promise.any([
+            listImagesTap(ra, dec, budget).then((r) => [r, 'IRSA TAP'] as const),
+            listImagesSia(ra, dec, budget).then((r) => [r, 'IRSA SIA2'] as const),
+          ]).then(([r, v]) => [r, v]);
+        } catch (err) {
+          for (const e of (err as AggregateError).errors ?? [err]) errors.push(e instanceof Error ? e.message : String(e));
         }
         if (!records) {
-          const index = await loadIndex();
-          const hit = index ? fromIndex(index, ra, dec) : null;
           if (!hit) return send(res, 503, { error: 'IRSA image search is unavailable right now.', details: errors });
           records = hit.images;
           via = `our index of ${hit.name}, built ${index!.generatedAtUtc.slice(0, 10)} from NASA's SPHEREx bucket on AWS (IRSA search unavailable)`;

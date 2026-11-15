@@ -28,6 +28,12 @@ npm start
 
 That serves the app and its API on http://localhost:8080 (set `PORT` to change it).
 
+## Demo video
+
+[`docs/pitch/spherex-sky-motion-demo.mp4`](docs/pitch/spherex-sky-motion-demo.mp4) (2 min 38 s, no sound), with the
+voice-over text and timings in [`docs/pitch/pitch-script.md`](docs/pitch/pitch-script.md). It was recorded
+from the running app with `node scripts/record-demo.cjs`.
+
 ## What you can do
 
 | Feature | How |
