@@ -21,7 +21,7 @@ export function About() {
       <h2 className="text-[22px] mt-8 mb-2">How we show it</h2>
       <ul className="pl-5 m-0 leading-7">
         <li>Real pixel values only. Images are placed north-up using each file's own sky coordinates.</li>
-        <li>A visit is the average of all images taken within 30 days.</li>
+        <li>A visit is the average of the images of one pass: a new visit starts after a 30-day gap, and a visit never spans more than 31 days.</li>
         <li>Dark blue pixels mean no data.</li>
         <li>If an archive does not answer, the page says so and shows nothing in its place.</li>
         <li>This tool helps people look. It does not claim discoveries.</li>

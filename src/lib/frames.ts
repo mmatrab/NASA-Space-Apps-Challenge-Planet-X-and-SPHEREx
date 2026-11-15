@@ -211,14 +211,18 @@ export interface Epoch<T> {
   items: T[];
 }
 
-/** Groups items into epochs separated by gaps longer than gapDays (default 30 days). */
-export function groupEpochs<T>(items: T[], mjdOf: (t: T) => number, gapDays = 30): Epoch<T>[] {
+/**
+ * Groups items into visits: a new visit starts after a gap longer than gapDays (30), or when a visit
+ * would span more than maxSpanDays (31). The second rule matters near the ecliptic poles, where
+ * SPHEREx looks almost continuously (R Draconis): there each visit becomes about one month.
+ */
+export function groupEpochs<T>(items: T[], mjdOf: (t: T) => number, gapDays = 30, maxSpanDays = 31): Epoch<T>[] {
   const sorted = [...items].filter((t) => Number.isFinite(mjdOf(t))).sort((a, b) => mjdOf(a) - mjdOf(b));
   const epochs: Epoch<T>[] = [];
   for (const t of sorted) {
     const m = mjdOf(t);
     const last = epochs[epochs.length - 1];
-    if (last && m - last.endMjd <= gapDays) {
+    if (last && m - last.endMjd <= gapDays && m - last.startMjd <= maxSpanDays) {
       last.items.push(t);
       last.endMjd = m;
     } else {

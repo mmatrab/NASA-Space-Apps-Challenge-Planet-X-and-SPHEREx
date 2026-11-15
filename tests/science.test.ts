@@ -101,6 +101,13 @@ describe('epochs, stacking and differences', () => {
     const e = groupEpochs([61000, 61001, 61010, 61190, 61192, 61370], (m) => m);
     expect(e.map((x) => x.items.length)).toEqual([3, 2, 1]);
   });
+  it('caps a visit at 31 days where SPHEREx looks almost continuously (near the ecliptic poles)', () => {
+    const daily = Array.from({ length: 90 }, (_, i) => 61000 + i);
+    const e = groupEpochs(daily, (m) => m);
+    expect(e.length).toBe(3);
+    expect(e.every((x) => x.endMjd - x.startMjd <= 31)).toBe(true);
+    expect(e.reduce((n, x) => n + x.items.length, 0)).toBe(90);
+  });
   it('stacks and takes medians ignoring missing pixels', () => {
     const a = Float32Array.from([1, NaN, 3]);
     const b = Float32Array.from([3, 2, NaN]);
